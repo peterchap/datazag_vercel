@@ -1,0 +1,95 @@
+import requests
+import pandas as pd
+import redis
+
+BASE_URL = "https://redis-api-705890714749.europe-west2.run.app"
+HEADERS = {"x-internal-token": "BG-b6WuywK7NWFoUP"}
+directory = "C:/Users/PeterChaplin/Downloads/"
+
+def test_ping():
+    r = requests.get(f"{BASE_URL}/ping")
+    print("GET /ping:", r.status_code, r.text)
+
+def test_sync_status():
+    r = requests.get(f"{BASE_URL}/redis/sync-status", headers=HEADERS)
+    print("GET /redis/sync-status:", r.status_code, r.text)
+
+def test_redis_list():
+    r = requests.get(f"{BASE_URL}/redis/dump", headers=HEADERS)
+    print("GET /redis/dump:", r.status_code)
+    try:
+        data = r.json()
+        print(data)
+        df = pd.json_normalize(data)
+        print(df.head())
+        #df.to_csv(directory + "redis_dump.csv", index=False)
+    except Exception as e:
+        print("Failed to parse JSON or create DataFrame:", e)
+        print("Raw response:", r.text)
+
+def test_register_api_key():
+    payload = {
+        "api_key": "api_19_testing",
+        "user_id": "42",
+        "credits": 100,
+        "active": True
+        }
+    r = requests.post(f"{BASE_URL}/redis/api-key", json=payload, headers=HEADERS)
+    print("POST /redis/api-key:", r.status_code, r.text)
+
+def test_key_exists():
+    api_key_id = "api_19_testing"
+    r = requests.get(f"{BASE_URL}/redis/key_exists/{api_key_id}", headers=HEADERS)
+    try:
+        result = r.json()
+    except Exception as e:
+        print("Failed to parse JSON:", e)
+        print("Raw response:", r.text)
+        return
+    print(api_key_id)
+    print(f"GET /redis/api-key/{api_key_id}:", r.status_code, result)
+    if result.get("exists"):
+        print(f"API key {api_key_id} exists.")
+
+def test_delete_api_key():
+    api_key_id = "api_19_testing"
+    r = requests.delete(f"{BASE_URL}/redis/api-key/{api_key_id}", headers=HEADERS)
+    print(f"DELETE /redis/api-key/{api_key_id}:", r.status_code, r.text)
+
+def test_patch_credits():
+    api_key_id = "api_19_testing" 
+    url = f"{BASE_URL}/redis/credits/{api_key_id}"
+    NEW_CREDITS = 50
+    payload = {
+        "credits": NEW_CREDITS
+    }
+
+    r = requests.patch(url, json=payload, headers=HEADERS)
+    if r.status_code == 200:
+        print(f"PATCH /redis/credits/{api_key_id} successful. New credits: {NEW_CREDITS}")
+    else:
+        print(f"Failed to update credits for {api_key_id}. Status code: {r.status_code}")        
+
+def test_get_credits():
+    api_key_id = "api_19_testing"
+    r = requests.get(f"{BASE_URL}/redis/get_credits/{api_key_id}", headers=HEADERS)
+    print(f"GET /redis/get_credits/{api_key_id}:", r.status_code, r.text)
+
+def test_flushdb():
+    r = requests.post(f"{BASE_URL}/redis/flushdb", headers=HEADERS)
+    print("POST /redis/flushdb:", r.status_code, r.text)
+
+if __name__ == "__main__":
+    print("Testing FastAPI Redis API\n")
+
+    test_ping()                  # Health check
+    test_sync_status()           # Redis sync status
+    #test_register_api_key()      # Register API key
+    #test_redis_list()            # List Redis keys and save to CSV
+    test_key_exists()            # Check API key exists
+    test_patch_credits()         # Update credits for user
+    test_get_credits()           # Get credits for user
+    test_redis_list()            # List Redis keys and save to CSV
+    #test_delete_api_key()        # Delete the API key
+    #test_flushdb()               # Flush the Redis database
+    

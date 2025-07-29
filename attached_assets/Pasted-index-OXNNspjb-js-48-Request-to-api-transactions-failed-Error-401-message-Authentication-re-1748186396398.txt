@@ -1,0 +1,120 @@
+index-OXNNspjb.js:48  Request to /api/transactions failed: Error: 401: {"message":"Authentication required"}
+    at FH (index-OXNNspjb.js:48:42800)
+    at async wt (index-OXNNspjb.js:48:43414)
+    at async index-OXNNspjb.js:48:43584
+(anonymous) @ index-OXNNspjb.js:48
+index-OXNNspjb.js:388 Current user: Object
+index-OXNNspjb.js:388 User role: USER
+index-OXNNspjb.js:388 Is business admin? false
+index-OXNNspjb.js:388 Current user: Object
+index-OXNNspjb.js:388 User role: USER
+index-OXNNspjb.js:388 Is business admin? false
+index-OXNNspjb.js:388 Current user: Object
+index-OXNNspjb.js:388 User role: USER
+index-OXNNspjb.js:388 Is business admin? false
+index-OXNNspjb.js:388 Current user: Object
+index-OXNNspjb.js:388 User role: USER
+index-OXNNspjb.js:388 Is business admin? false
+index-OXNNspjb.js:40  TypeError: Cannot read properties of null (reading 'filter')
+    at mz (index-OXNNspjb.js:460:35141)
+    at aS (index-OXNNspjb.js:38:16998)
+    at G0 (index-OXNNspjb.js:40:3139)
+    at YR (index-OXNNspjb.js:40:44804)
+    at HR (index-OXNNspjb.js:40:39766)
+    at gq (index-OXNNspjb.js:40:39694)
+    at gv (index-OXNNspjb.js:40:39547)
+    at aw (index-OXNNspjb.js:40:35914)
+    at QN (index-OXNNspjb.js:40:36717)
+    at Ds (index-OXNNspjb.js:38:3274)
+K0 @ index-OXNNspjb.js:40
+index-OXNNspjb.js:38  Uncaught TypeError: Cannot read properties of null (reading 'filter')
+    at mz (index-OXNNspjb.js:460:35141)
+    at aS (index-OXNNspjb.js:38:16998)
+    at G0 (index-OXNNspjb.js:40:3139)
+    at YR (index-OXNNspjb.js:40:44804)
+    at HR (index-OXNNspjb.js:40:39766)
+    at gq (index-OXNNspjb.js:40:39694)
+    at gv (index-OXNNspjb.js:40:39547)
+    at aw (index-OXNNspjb.js:40:35914)
+    at QN (index-OXNNspjb.js:40:36717)
+    at Ds (index-OXNNspjb.js:38:3274)
+index-OXNNspjb.js:48  API request error: Error: 401: {"message":"Authentication required"}
+    at FH (index-OXNNspjb.js:48:42800)
+    at async wt (index-OXNNspjb.js:48:43414)
+    at async index-OXNNspjb.js:48:43584
+wt @ index-OXNNspjb.js:48
+index-OXNNspjb.js:48  Request to /api/api-keys failed: Error: 401: {"message":"Authentication required"}
+    at FH (index-OXNNspjb.js:48:42800)
+    at async wt (index-OXNNspjb.js:48:43414)
+    at async index-OXNNspjb.js:48:43584
+(anonymous) @ index-OXNNspjb.js:48
+apipg.datazag.com/api/api-usage:1 
+            
+            
+            Failed to load resource: the server responded with a status of 404 (Not Found)
+index-OXNNspjb.js:48 Response status: 404 Not Found
+apipg.datazag.com/api/me:1 
+            
+            
+            Failed to load resource: the server responded with a status of 404 (Not Found)
+index-OXNNspjb.js:48 Response status: 404 Not Found
+index-OXNNspjb.js:48 Response status: 200 OK
+index-OXNNspjb.js:48  API request error: Error: 404: <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>Cannot GET /api/api-usage</pre>
+</body>
+</html>
+
+    at FH (index-OXNNspjb.js:48:42800)
+    at async wt (index-OXNNspjb.js:48:43414)
+    at async index-OXNNspjb.js:48:43584
+wt @ index-OXNNspjb.js:48
+index-OXNNspjb.js:48  Request to /api/api-usage failed: Error: 404: <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>Cannot GET /api/api-usage</pre>
+</body>
+</html>
+
+    at FH (index-OXNNspjb.js:48:42800)
+    at async wt (index-OXNNspjb.js:48:43414)
+    at async index-OXNNspjb.js:48:43584
+(anonymous) @ index-OXNNspjb.js:48
+index-OXNNspjb.js:48  API request error: Error: 404: <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>Cannot GET /api/me</pre>
+</body>
+</html>
+
+    at FH (index-OXNNspjb.js:48:42800)
+    at async wt (index-OXNNspjb.js:48:43414)
+    at async index-OXNNspjb.js:48:43584
+wt @ index-OXNNspjb.js:48
+index-OXNNspjb.js:48  Request to /api/me failed: Error: 404: <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>Cannot GET /api/me</pre>
+</body>
+</html>
+
+    at FH (index-OXNNspjb.js:48:42800)
+    at async wt (index-OXNNspjb.js:48:43414)
+    at async index-OXNNspjb.js:48:43584

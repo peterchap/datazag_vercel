@@ -1,0 +1,456 @@
+Using API Gateway URL: https://apipg.datazag.com/api/exchange-rates
+index-CvJcyYwt.js:48 API Request: GET https://apipg.datazag.com/api/exchange-rates {data: 'none'}
+index-CvJcyYwt.js:348 Checking authentication status...
+index-CvJcyYwt.js:348 User data from local storage: {id: 18, email: 'pchaplin@example.com', company: 'Datazag Ltd', credits: 0, role: 'USER', …}
+index-CvJcyYwt.js:348 Current user: {id: 18, email: 'pchaplin@example.com', company: 'Datazag Ltd', credits: 0, role: 'USER', …}
+index-CvJcyYwt.js:348 User role: USER
+index-CvJcyYwt.js:348 Is business admin? false
+index-CvJcyYwt.js:348 Current user: {id: 18, email: 'pchaplin@example.com', company: 'Datazag Ltd', credits: 0, role: 'USER', …}
+index-CvJcyYwt.js:348 User role: USER
+index-CvJcyYwt.js:348 Is business admin? false
+index-CvJcyYwt.js:388 Current user: {id: 18, email: 'pchaplin@example.com', company: 'Datazag Ltd', credits: 0, role: 'USER', …}
+index-CvJcyYwt.js:388 User role: USER
+index-CvJcyYwt.js:388 Is business admin? false
+index-CvJcyYwt.js:388 Current user: {id: 18, email: 'pchaplin@example.com', company: 'Datazag Ltd', credits: 0, role: 'USER', …}
+index-CvJcyYwt.js:388 User role: USER
+index-CvJcyYwt.js:388 Is business admin? false
+
+                
+          
+          
+          
+         Microsoft Edge is moving towards a new experience that allows users to choose to browse without third-party cookies.
+index-CvJcyYwt.js:48 Using API Gateway URL: https://apipg.datazag.com/api/api-usage
+index-CvJcyYwt.js:48 API Request: GET https://apipg.datazag.com/api/api-usage {data: 'none'}
+index-CvJcyYwt.js:48 Using API Gateway URL: https://apipg.datazag.com/api/credit-bundles
+index-CvJcyYwt.js:48 API Request: GET https://apipg.datazag.com/api/credit-bundles {data: 'none'}
+index-CvJcyYwt.js:48 Using API Gateway URL: https://apipg.datazag.com/api/transactions
+index-CvJcyYwt.js:48 API Request: GET https://apipg.datazag.com/api/transactions {data: 'none'}
+index-CvJcyYwt.js:48 Using API Gateway URL: https://apipg.datazag.com/api/api-keys
+index-CvJcyYwt.js:48 API Request: GET https://apipg.datazag.com/api/api-keys {data: 'none'}
+index-CvJcyYwt.js:48 Using API Gateway URL: https://apipg.datazag.com/api/me
+index-CvJcyYwt.js:48 API Request: GET https://apipg.datazag.com/api/me {data: 'none'}
+index-CvJcyYwt.js:48 
+            
+            
+            GET https://apipg.datazag.com/api/api-keys 401 (Unauthorized)
+wt @ index-CvJcyYwt.js:48
+(anonymous) @ index-CvJcyYwt.js:48
+a @ index-CvJcyYwt.js:48
+v @ index-CvJcyYwt.js:48
+start @ index-CvJcyYwt.js:48
+fetch @ index-CvJcyYwt.js:48
+lf @ index-CvJcyYwt.js:48
+onSubscribe @ index-CvJcyYwt.js:48
+subscribe @ index-CvJcyYwt.js:48
+(anonymous) @ index-CvJcyYwt.js:48
+dR @ index-CvJcyYwt.js:38
+sg @ index-CvJcyYwt.js:40
+Uc @ index-CvJcyYwt.js:40
+bq @ index-CvJcyYwt.js:40
+Ys @ index-CvJcyYwt.js:40
+QN @ index-CvJcyYwt.js:40
+Ds @ index-CvJcyYwt.js:38
+bq @ index-CvJcyYwt.js:40
+Ys @ index-CvJcyYwt.js:40
+VR @ index-CvJcyYwt.js:40
+j @ index-CvJcyYwt.js:25
+E @ index-CvJcyYwt.js:25
+index-CvJcyYwt.js:48 Response status: 401 Unauthorized
+index-CvJcyYwt.js:48 
+            
+            
+            GET https://apipg.datazag.com/api/transactions 401 (Unauthorized)
+wt @ index-CvJcyYwt.js:48
+(anonymous) @ index-CvJcyYwt.js:48
+a @ index-CvJcyYwt.js:48
+v @ index-CvJcyYwt.js:48
+start @ index-CvJcyYwt.js:48
+fetch @ index-CvJcyYwt.js:48
+lf @ index-CvJcyYwt.js:48
+onSubscribe @ index-CvJcyYwt.js:48
+subscribe @ index-CvJcyYwt.js:48
+(anonymous) @ index-CvJcyYwt.js:48
+dR @ index-CvJcyYwt.js:38
+sg @ index-CvJcyYwt.js:40
+Uc @ index-CvJcyYwt.js:40
+bq @ index-CvJcyYwt.js:40
+Ys @ index-CvJcyYwt.js:40
+QN @ index-CvJcyYwt.js:40
+Ds @ index-CvJcyYwt.js:38
+bq @ index-CvJcyYwt.js:40
+Ys @ index-CvJcyYwt.js:40
+VR @ index-CvJcyYwt.js:40
+j @ index-CvJcyYwt.js:25
+E @ index-CvJcyYwt.js:25
+index-CvJcyYwt.js:48 Response status: 401 Unauthorized
+index-CvJcyYwt.js:48 
+            
+            
+            GET https://apipg.datazag.com/api/api-usage 404 (Not Found)
+wt @ index-CvJcyYwt.js:48
+(anonymous) @ index-CvJcyYwt.js:48
+a @ index-CvJcyYwt.js:48
+v @ index-CvJcyYwt.js:48
+start @ index-CvJcyYwt.js:48
+fetch @ index-CvJcyYwt.js:48
+lf @ index-CvJcyYwt.js:48
+onSubscribe @ index-CvJcyYwt.js:48
+subscribe @ index-CvJcyYwt.js:48
+(anonymous) @ index-CvJcyYwt.js:48
+dR @ index-CvJcyYwt.js:38
+sg @ index-CvJcyYwt.js:40
+Uc @ index-CvJcyYwt.js:40
+bq @ index-CvJcyYwt.js:40
+Ys @ index-CvJcyYwt.js:40
+QN @ index-CvJcyYwt.js:40
+Ds @ index-CvJcyYwt.js:38
+bq @ index-CvJcyYwt.js:40
+Ys @ index-CvJcyYwt.js:40
+VR @ index-CvJcyYwt.js:40
+j @ index-CvJcyYwt.js:25
+E @ index-CvJcyYwt.js:25
+index-CvJcyYwt.js:48 Response status: 404 Not Found
+2index-CvJcyYwt.js:48 Response status: 200 OK
+index-CvJcyYwt.js:48 
+            
+            
+            GET https://apipg.datazag.com/api/me 404 (Not Found)
+wt @ index-CvJcyYwt.js:48
+(anonymous) @ index-CvJcyYwt.js:48
+a @ index-CvJcyYwt.js:48
+v @ index-CvJcyYwt.js:48
+start @ index-CvJcyYwt.js:48
+fetch @ index-CvJcyYwt.js:48
+lf @ index-CvJcyYwt.js:48
+onSubscribe @ index-CvJcyYwt.js:48
+subscribe @ index-CvJcyYwt.js:48
+(anonymous) @ index-CvJcyYwt.js:48
+dR @ index-CvJcyYwt.js:38
+sg @ index-CvJcyYwt.js:40
+Uc @ index-CvJcyYwt.js:40
+bq @ index-CvJcyYwt.js:40
+Ys @ index-CvJcyYwt.js:40
+QN @ index-CvJcyYwt.js:40
+Ds @ index-CvJcyYwt.js:38
+bq @ index-CvJcyYwt.js:40
+Ys @ index-CvJcyYwt.js:40
+VR @ index-CvJcyYwt.js:40
+j @ index-CvJcyYwt.js:25
+E @ index-CvJcyYwt.js:25
+index-CvJcyYwt.js:48 Response status: 404 Not Found
+index-CvJcyYwt.js:48  API request error: Error: 401: {"message":"Authentication required"}
+    at FH (index-CvJcyYwt.js:48:42800)
+    at async wt (index-CvJcyYwt.js:48:43414)
+    at async index-CvJcyYwt.js:48:43584
+wt @ index-CvJcyYwt.js:48
+await in wt
+(anonymous) @ index-CvJcyYwt.js:48
+a @ index-CvJcyYwt.js:48
+v @ index-CvJcyYwt.js:48
+start @ index-CvJcyYwt.js:48
+fetch @ index-CvJcyYwt.js:48
+lf @ index-CvJcyYwt.js:48
+onSubscribe @ index-CvJcyYwt.js:48
+subscribe @ index-CvJcyYwt.js:48
+(anonymous) @ index-CvJcyYwt.js:48
+dR @ index-CvJcyYwt.js:38
+sg @ index-CvJcyYwt.js:40
+Uc @ index-CvJcyYwt.js:40
+bq @ index-CvJcyYwt.js:40
+Ys @ index-CvJcyYwt.js:40
+QN @ index-CvJcyYwt.js:40
+Ds @ index-CvJcyYwt.js:38
+bq @ index-CvJcyYwt.js:40
+Ys @ index-CvJcyYwt.js:40
+VR @ index-CvJcyYwt.js:40
+j @ index-CvJcyYwt.js:25
+E @ index-CvJcyYwt.js:25
+index-CvJcyYwt.js:48  Request to /api/api-keys failed: Error: 401: {"message":"Authentication required"}
+    at FH (index-CvJcyYwt.js:48:42800)
+    at async wt (index-CvJcyYwt.js:48:43414)
+    at async index-CvJcyYwt.js:48:43584
+(anonymous) @ index-CvJcyYwt.js:48
+await in (anonymous)
+a @ index-CvJcyYwt.js:48
+v @ index-CvJcyYwt.js:48
+start @ index-CvJcyYwt.js:48
+fetch @ index-CvJcyYwt.js:48
+lf @ index-CvJcyYwt.js:48
+onSubscribe @ index-CvJcyYwt.js:48
+subscribe @ index-CvJcyYwt.js:48
+(anonymous) @ index-CvJcyYwt.js:48
+dR @ index-CvJcyYwt.js:38
+sg @ index-CvJcyYwt.js:40
+Uc @ index-CvJcyYwt.js:40
+bq @ index-CvJcyYwt.js:40
+Ys @ index-CvJcyYwt.js:40
+QN @ index-CvJcyYwt.js:40
+Ds @ index-CvJcyYwt.js:38
+bq @ index-CvJcyYwt.js:40
+Ys @ index-CvJcyYwt.js:40
+VR @ index-CvJcyYwt.js:40
+j @ index-CvJcyYwt.js:25
+E @ index-CvJcyYwt.js:25
+index-CvJcyYwt.js:48  API request error: Error: 401: {"message":"Authentication required"}
+    at FH (index-CvJcyYwt.js:48:42800)
+    at async wt (index-CvJcyYwt.js:48:43414)
+    at async index-CvJcyYwt.js:48:43584
+wt @ index-CvJcyYwt.js:48
+await in wt
+(anonymous) @ index-CvJcyYwt.js:48
+a @ index-CvJcyYwt.js:48
+v @ index-CvJcyYwt.js:48
+start @ index-CvJcyYwt.js:48
+fetch @ index-CvJcyYwt.js:48
+lf @ index-CvJcyYwt.js:48
+onSubscribe @ index-CvJcyYwt.js:48
+subscribe @ index-CvJcyYwt.js:48
+(anonymous) @ index-CvJcyYwt.js:48
+dR @ index-CvJcyYwt.js:38
+sg @ index-CvJcyYwt.js:40
+Uc @ index-CvJcyYwt.js:40
+bq @ index-CvJcyYwt.js:40
+Ys @ index-CvJcyYwt.js:40
+QN @ index-CvJcyYwt.js:40
+Ds @ index-CvJcyYwt.js:38
+bq @ index-CvJcyYwt.js:40
+Ys @ index-CvJcyYwt.js:40
+VR @ index-CvJcyYwt.js:40
+j @ index-CvJcyYwt.js:25
+E @ index-CvJcyYwt.js:25
+index-CvJcyYwt.js:48  Request to /api/transactions failed: Error: 401: {"message":"Authentication required"}
+    at FH (index-CvJcyYwt.js:48:42800)
+    at async wt (index-CvJcyYwt.js:48:43414)
+    at async index-CvJcyYwt.js:48:43584
+(anonymous) @ index-CvJcyYwt.js:48
+await in (anonymous)
+a @ index-CvJcyYwt.js:48
+v @ index-CvJcyYwt.js:48
+start @ index-CvJcyYwt.js:48
+fetch @ index-CvJcyYwt.js:48
+lf @ index-CvJcyYwt.js:48
+onSubscribe @ index-CvJcyYwt.js:48
+subscribe @ index-CvJcyYwt.js:48
+(anonymous) @ index-CvJcyYwt.js:48
+dR @ index-CvJcyYwt.js:38
+sg @ index-CvJcyYwt.js:40
+Uc @ index-CvJcyYwt.js:40
+bq @ index-CvJcyYwt.js:40
+Ys @ index-CvJcyYwt.js:40
+QN @ index-CvJcyYwt.js:40
+Ds @ index-CvJcyYwt.js:38
+bq @ index-CvJcyYwt.js:40
+Ys @ index-CvJcyYwt.js:40
+VR @ index-CvJcyYwt.js:40
+j @ index-CvJcyYwt.js:25
+E @ index-CvJcyYwt.js:25
+index-CvJcyYwt.js:48  API request error: Error: 404: <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>Cannot GET /api/api-usage</pre>
+</body>
+</html>
+
+    at FH (index-CvJcyYwt.js:48:42800)
+    at async wt (index-CvJcyYwt.js:48:43414)
+    at async index-CvJcyYwt.js:48:43584
+wt @ index-CvJcyYwt.js:48
+await in wt
+(anonymous) @ index-CvJcyYwt.js:48
+a @ index-CvJcyYwt.js:48
+v @ index-CvJcyYwt.js:48
+start @ index-CvJcyYwt.js:48
+fetch @ index-CvJcyYwt.js:48
+lf @ index-CvJcyYwt.js:48
+onSubscribe @ index-CvJcyYwt.js:48
+subscribe @ index-CvJcyYwt.js:48
+(anonymous) @ index-CvJcyYwt.js:48
+dR @ index-CvJcyYwt.js:38
+sg @ index-CvJcyYwt.js:40
+Uc @ index-CvJcyYwt.js:40
+bq @ index-CvJcyYwt.js:40
+Ys @ index-CvJcyYwt.js:40
+QN @ index-CvJcyYwt.js:40
+Ds @ index-CvJcyYwt.js:38
+bq @ index-CvJcyYwt.js:40
+Ys @ index-CvJcyYwt.js:40
+VR @ index-CvJcyYwt.js:40
+j @ index-CvJcyYwt.js:25
+E @ index-CvJcyYwt.js:25
+index-CvJcyYwt.js:48  Request to /api/api-usage failed: Error: 404: <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>Cannot GET /api/api-usage</pre>
+</body>
+</html>
+
+    at FH (index-CvJcyYwt.js:48:42800)
+    at async wt (index-CvJcyYwt.js:48:43414)
+    at async index-CvJcyYwt.js:48:43584
+(anonymous) @ index-CvJcyYwt.js:48
+await in (anonymous)
+a @ index-CvJcyYwt.js:48
+v @ index-CvJcyYwt.js:48
+start @ index-CvJcyYwt.js:48
+fetch @ index-CvJcyYwt.js:48
+lf @ index-CvJcyYwt.js:48
+onSubscribe @ index-CvJcyYwt.js:48
+subscribe @ index-CvJcyYwt.js:48
+(anonymous) @ index-CvJcyYwt.js:48
+dR @ index-CvJcyYwt.js:38
+sg @ index-CvJcyYwt.js:40
+Uc @ index-CvJcyYwt.js:40
+bq @ index-CvJcyYwt.js:40
+Ys @ index-CvJcyYwt.js:40
+QN @ index-CvJcyYwt.js:40
+Ds @ index-CvJcyYwt.js:38
+bq @ index-CvJcyYwt.js:40
+Ys @ index-CvJcyYwt.js:40
+VR @ index-CvJcyYwt.js:40
+j @ index-CvJcyYwt.js:25
+E @ index-CvJcyYwt.js:25
+index-CvJcyYwt.js:48 Parsed JSON from /api/exchange-rates: {USD: 1, EUR: 0.93, GBP: 0.79, JPY: 155, CAD: 1.36, …}
+index-CvJcyYwt.js:48 Parsed JSON from /api/credit-bundles: []
+index-CvJcyYwt.js:48  API request error: Error: 404: <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>Cannot GET /api/me</pre>
+</body>
+</html>
+
+    at FH (index-CvJcyYwt.js:48:42800)
+    at async wt (index-CvJcyYwt.js:48:43414)
+    at async index-CvJcyYwt.js:48:43584
+wt @ index-CvJcyYwt.js:48
+await in wt
+(anonymous) @ index-CvJcyYwt.js:48
+a @ index-CvJcyYwt.js:48
+v @ index-CvJcyYwt.js:48
+start @ index-CvJcyYwt.js:48
+fetch @ index-CvJcyYwt.js:48
+lf @ index-CvJcyYwt.js:48
+onSubscribe @ index-CvJcyYwt.js:48
+subscribe @ index-CvJcyYwt.js:48
+(anonymous) @ index-CvJcyYwt.js:48
+dR @ index-CvJcyYwt.js:38
+sg @ index-CvJcyYwt.js:40
+Uc @ index-CvJcyYwt.js:40
+bq @ index-CvJcyYwt.js:40
+Ys @ index-CvJcyYwt.js:40
+QN @ index-CvJcyYwt.js:40
+Ds @ index-CvJcyYwt.js:38
+bq @ index-CvJcyYwt.js:40
+Ys @ index-CvJcyYwt.js:40
+VR @ index-CvJcyYwt.js:40
+j @ index-CvJcyYwt.js:25
+E @ index-CvJcyYwt.js:25
+index-CvJcyYwt.js:48  Request to /api/me failed: Error: 404: <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>Cannot GET /api/me</pre>
+</body>
+</html>
+
+    at FH (index-CvJcyYwt.js:48:42800)
+    at async wt (index-CvJcyYwt.js:48:43414)
+    at async index-CvJcyYwt.js:48:43584
+(anonymous) @ index-CvJcyYwt.js:48
+await in (anonymous)
+a @ index-CvJcyYwt.js:48
+v @ index-CvJcyYwt.js:48
+start @ index-CvJcyYwt.js:48
+fetch @ index-CvJcyYwt.js:48
+lf @ index-CvJcyYwt.js:48
+onSubscribe @ index-CvJcyYwt.js:48
+subscribe @ index-CvJcyYwt.js:48
+(anonymous) @ index-CvJcyYwt.js:48
+dR @ index-CvJcyYwt.js:38
+sg @ index-CvJcyYwt.js:40
+Uc @ index-CvJcyYwt.js:40
+bq @ index-CvJcyYwt.js:40
+Ys @ index-CvJcyYwt.js:40
+QN @ index-CvJcyYwt.js:40
+Ds @ index-CvJcyYwt.js:38
+bq @ index-CvJcyYwt.js:40
+Ys @ index-CvJcyYwt.js:40
+VR @ index-CvJcyYwt.js:40
+j @ index-CvJcyYwt.js:25
+E @ index-CvJcyYwt.js:25
+index-CvJcyYwt.js:40  TypeError: Cannot read properties of null (reading 'filter')
+    at v_ (index-CvJcyYwt.js:460:52832)
+    at OCe (index-CvJcyYwt.js:460:53896)
+    at aS (index-CvJcyYwt.js:38:16998)
+    at G0 (index-CvJcyYwt.js:40:3139)
+    at YR (index-CvJcyYwt.js:40:44804)
+    at HR (index-CvJcyYwt.js:40:39766)
+    at gq (index-CvJcyYwt.js:40:39694)
+    at gv (index-CvJcyYwt.js:40:39547)
+    at aw (index-CvJcyYwt.js:40:35914)
+    at QN (index-CvJcyYwt.js:40:36717)
+K0 @ index-CvJcyYwt.js:40
+AR.r.callback @ index-CvJcyYwt.js:40
+TN @ index-CvJcyYwt.js:38
+KN @ index-CvJcyYwt.js:40
+zR @ index-CvJcyYwt.js:40
+mq @ index-CvJcyYwt.js:40
+bq @ index-CvJcyYwt.js:40
+Ys @ index-CvJcyYwt.js:40
+QN @ index-CvJcyYwt.js:40
+Ds @ index-CvJcyYwt.js:38
+(anonymous) @ index-CvJcyYwt.js:40
+setTimeout
+i @ index-CvJcyYwt.js:48
+o @ index-CvJcyYwt.js:48
+batch @ index-CvJcyYwt.js:48
+Ya @ index-CvJcyYwt.js:48
+setData @ index-CvJcyYwt.js:48
+onSuccess @ index-CvJcyYwt.js:48
+f @ index-CvJcyYwt.js:48
+Promise.then
+v @ index-CvJcyYwt.js:48
+start @ index-CvJcyYwt.js:48
+fetch @ index-CvJcyYwt.js:48
+lf @ index-CvJcyYwt.js:48
+onSubscribe @ index-CvJcyYwt.js:48
+subscribe @ index-CvJcyYwt.js:48
+(anonymous) @ index-CvJcyYwt.js:48
+dR @ index-CvJcyYwt.js:38
+sg @ index-CvJcyYwt.js:40
+Uc @ index-CvJcyYwt.js:40
+bq @ index-CvJcyYwt.js:40
+Ys @ index-CvJcyYwt.js:40
+QN @ index-CvJcyYwt.js:40
+Ds @ index-CvJcyYwt.js:38
+bq @ index-CvJcyYwt.js:40
+Ys @ index-CvJcyYwt.js:40
+VR @ index-CvJcyYwt.js:40
+j @ index-CvJcyYwt.js:25
+E @ index-CvJcyYwt.js:25
+index-CvJcyYwt.js:460  Uncaught TypeError: Cannot read properties of null (reading 'filter')
+    at v_ (index-CvJcyYwt.js:460:52832)
+    at OCe (index-CvJcyYwt.js:460:53896)
+    at aS (index-CvJcyYwt.js:38:16998)
+    at G0 (index-CvJcyYwt.js:40:3139)
+    at YR (index-CvJcyYwt.js:40:44804)
+    at HR (index-CvJcyYwt.js:40:39766)
+    at gq (index-CvJcyYwt.js:40:39694)
+    at gv (index-CvJcyYwt.js:40:39547)
+    at aw (index-CvJcyYwt.js:40:35914)
+    at QN (index-CvJcyYwt.js:40:36717)

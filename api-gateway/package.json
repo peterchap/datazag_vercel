@@ -1,0 +1,28 @@
+{
+  "name": "api-gateway",
+  "version": "1.0.0",
+  "description": "API Gateway for secure database access",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node test-connection.js"
+  },
+  "keywords": [
+    "api",
+    "gateway",
+    "postgres",
+    "firebase"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^5.1.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "express-rate-limit": "^6.7.0",
+    "jsonwebtoken": "^9.0.0",
+    "node-fetch": "^2.6.9",
+    "pg": "^8.10.0"
+  }
+}
