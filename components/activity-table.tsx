@@ -103,7 +103,7 @@ export default function ActivityTable({ className }: ActivityTableProps) {
                       <Badge
                         variant={
                           transaction.status === "success" || transaction.status === "completed"
-                            ? "success"
+                            ? "default"
                             : transaction.status === "failed"
                             ? "destructive"
                             : "secondary"
