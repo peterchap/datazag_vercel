@@ -12,7 +12,6 @@ A comprehensive customer management platform built with **Next.js 14**, featurin
 - **🎨 Modern UI**: Tailwind CSS with shadcn/ui components
 - **🗄️ PostgreSQL Database**: Drizzle ORM with connection pooling
 - **⚡ High Performance**: React Query for optimized data fetching
-- 
 
 ## 🚀 Quick Start
 
