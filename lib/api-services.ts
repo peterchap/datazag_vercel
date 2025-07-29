@@ -7,8 +7,8 @@
  */
 
 // Get API URLs from environment variables
-export const API_GATEWAY_URL = import.meta.env.VITE_API_GATEWAY_URL || 'http://localhost:3000';
-export const API_SERVICE_URL = import.meta.env.VITE_API_SERVICE_URL || 'http://localhost:4000';
+export const API_GATEWAY_URL = process.env.NEXT_PUBLIC_API_GATEWAY_URL || 'http://localhost:3000';
+export const API_SERVICE_URL = process.env.NEXT_PUBLIC_API_SERVICE_URL || 'http://localhost:4000';
 
 /**
  * Response interface for all API operations
@@ -279,7 +279,7 @@ class ApiGatewayClient extends BaseApiClient {
   constructor() {
     super(API_GATEWAY_URL);
     if (!this.isConfigured()) {
-      console.warn('API Gateway URL not configured. Please set VITE_API_GATEWAY_URL in your environment.');
+      console.warn('API Gateway URL not configured. Please set NEXT_PUBLIC_API_GATEWAY_URL in your environment.');
     }
   }
   
@@ -325,7 +325,7 @@ class ApiServiceClient extends BaseApiClient {
   constructor() {
     super(API_SERVICE_URL);
     if (!this.isConfigured()) {
-      console.warn('API Service URL not configured. Please set VITE_API_SERVICE_URL in your environment.');
+      console.warn('API Service URL not configured. Please set NEXT_PUBLIC_API_SERVICE_URL in your environment.');
     }
   }
   
