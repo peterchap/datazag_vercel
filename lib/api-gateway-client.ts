@@ -32,7 +32,7 @@ interface ApiGatewayResponse<T> {
  * Default client configuration
  */
 const DEFAULT_CONFIG: ApiGatewayConfig = {
-  baseUrl: import.meta.env.VITE_API_GATEWAY_URL || '',
+  baseUrl: process.env.NEXT_PUBLIC_API_GATEWAY_URL || '',
   timeout: 30000, // 30 seconds
   defaultHeaders: {
     'Content-Type': 'application/json',
@@ -53,7 +53,7 @@ class ApiGatewayClient {
     // Validate configuration
     if (!this.config.baseUrl) {
       console.warn(
-        'API Gateway URL not configured. Please set VITE_API_GATEWAY_URL in your environment.'
+        'API Gateway URL not configured. Please set NEXT_PUBLIC_API_GATEWAY_URL in your environment.'
       );
     }
   }
