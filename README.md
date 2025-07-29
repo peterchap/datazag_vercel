@@ -154,7 +154,6 @@ The application is configured for deployment on Replit with custom domain suppor
 3. Ensure HTTPS is enabled for secure cookie transmission
 
 ## Project Structure
-
 ```
 ├── client/           # Frontend React application
 │   ├── src/
