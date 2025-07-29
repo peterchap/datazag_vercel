@@ -24,6 +24,7 @@ interface User {
   company: string;
   credits: number;
   role: string;
+  canPurchaseCredits?: boolean; // Permission to purchase credits (defaults to true for admins)
 }
 
 type LoginData = {

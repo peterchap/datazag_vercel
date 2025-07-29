@@ -28,7 +28,9 @@ export default function CreditBundles({ className }: CreditBundlesProps) {
   const [selectedBundleId, setSelectedBundleId] = useState<number | null>(null);
   
   // Check if the user has been restricted from purchasing credits
-  const canPurchaseCredits = user?.canPurchaseCredits !== false;
+  // Only authorized staff (admins or users with explicit permission) can purchase credits
+  const canPurchaseCredits = user?.canPurchaseCredits !== false && 
+    (user?.role === "admin" || user?.canPurchaseCredits === true);
   
   const handlePurchaseClick = (bundleId: number) => {
     if (!canPurchaseCredits) {
@@ -47,7 +49,17 @@ export default function CreditBundles({ className }: CreditBundlesProps) {
       <CardHeader className="border-b border-gray-200">
         <CardTitle>Credit Bundles</CardTitle>
       </CardHeader>
-      <CardContent className="p-6 space-y-6">
+            <CardContent className="p-6">
+        {!canPurchaseCredits && (
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+            <p className="text-sm text-yellow-800">
+              <strong>Note:</strong> You don't have permission to purchase credits. 
+              Please contact your account administrator or company admin to make purchases.
+            </p>
+          </div>
+        )}
+        
+        {/* Payment Method Selection */}
         {!canPurchaseCredits && (
           <Alert variant="destructive" className="mb-4">
             <AlertTriangle className="h-4 w-4" />
