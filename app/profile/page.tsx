@@ -231,7 +231,7 @@ export default function Profile() {
           </TabsContent>
           
           <TabsContent value="security" className="space-y-6">
-            <RecoveryCodes />
+            <RecoveryCodes userId={user?.id ? Number(user.id) : 0} />
           </TabsContent>
         </Tabs>
       </div>
