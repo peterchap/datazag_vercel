@@ -52,11 +52,11 @@ export async function POST(request: Request) {
     // Create API key in database
     const keyResult = await client.query(`
       INSERT INTO api_keys (
-        user_id, key_value, name, description, 
-        active, created_at, updated_at, last_used_at
-      ) VALUES ($1, $2, $3, $4, true, NOW(), NOW(), NULL)
-      RETURNING id, key_value, name, description, active, created_at
-    `, [userId, apiKey, name, description || null]);
+        user_id, api_key, key_name, 
+        is_active, created_at, updated_at
+      ) VALUES ($1, $2, $3, true, NOW(), NOW())
+      RETURNING id, api_key, key_name, is_active, created_at
+    `, [userId, apiKey, name]);
 
     const newKey = keyResult.rows[0];
 
@@ -70,10 +70,9 @@ export async function POST(request: Request) {
       message: 'API key created successfully',
       key: {
         id: newKey.id,
-        key: newKey.key_value,
-        name: newKey.name,
-        description: newKey.description,
-        active: newKey.active,
+        key: newKey.api_key,
+        name: newKey.key_name,
+        active: newKey.is_active,
         created_at: newKey.created_at
       },
       user: {
@@ -107,8 +106,8 @@ export async function GET(request: Request) {
 
     let query = `
       SELECT 
-        ak.id, ak.key_value, ak.name, ak.description, 
-        ak.active, ak.created_at, ak.last_used_at,
+        ak.id, ak.api_key, ak.key_name, 
+        ak.is_active, ak.created_at,
         u.email, u.credits
       FROM api_keys ak
       JOIN users u ON ak.user_id = u.id
@@ -129,12 +128,10 @@ export async function GET(request: Request) {
       success: true,
       keys: result.rows.map(row => ({
         id: row.id,
-        key: row.key_value,
-        name: row.name,
-        description: row.description,
-        active: row.active,
+        key: row.api_key,
+        name: row.key_name,
+        active: row.is_active,
         created_at: row.created_at,
-        last_used_at: row.last_used_at,
         user_email: row.email,
         user_credits: row.credits
       }))
