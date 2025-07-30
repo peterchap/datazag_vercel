@@ -67,17 +67,14 @@ export async function POST(request: Request) {
       }, { status: 402 });
     }
 
-    // Record API usage
+    // Record API usage in transactions table as a credit deduction
     await client.query(`
-      INSERT INTO api_usage (user_id, api_key_id, credits_used, endpoint, query_type, metadata, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6, NOW())
+      INSERT INTO transactions (user_id, amount, type, description, created_at)
+      VALUES ($1, $2, 'debit', $3, NOW())
     `, [
       userId,
-      apiKeyId || null,
-      creditsUsed,
-      endpoint,
-      queryType,
-      JSON.stringify(metadata)
+      -creditsUsed,
+      `API usage: ${queryType} (${endpoint}) - API Key: ${apiKeyId || 'direct'}`
     ]);
 
     // Deduct credits from user
@@ -95,7 +92,7 @@ export async function POST(request: Request) {
     `, [
       userId,
       -creditsUsed,
-      `API usage: ${queryType} (${endpoint})`
+      `API usage: ${queryType} (${endpoint}) - Additional record`
     ]);
 
     await client.query('COMMIT');
@@ -137,49 +134,52 @@ export async function GET() {
   const client = await pool.connect();
   
   try {
-    // Get recent API usage stats
+    // Get recent API usage stats from transactions
     const usageStats = await client.query(`
       SELECT 
         COUNT(*) as total_requests,
-        SUM(credits_used) as total_credits_used,
-        AVG(credits_used) as avg_credits_per_request,
-        query_type,
+        SUM(ABS(amount)) as total_credits_used,
+        AVG(ABS(amount)) as avg_credits_per_request,
         COUNT(DISTINCT user_id) as unique_users
-      FROM api_usage 
-      WHERE created_at > NOW() - INTERVAL '24 hours'
-      GROUP BY query_type
-      ORDER BY total_credits_used DESC
+      FROM transactions 
+      WHERE type = 'debit' 
+        AND description LIKE 'API usage:%'
+        AND created_at > NOW() - INTERVAL '24 hours'
     `);
 
-    // Get top users by usage
+    // Get top users by usage from transactions
     const topUsers = await client.query(`
       SELECT 
         u.email,
         u.credits as current_credits,
-        SUM(au.credits_used) as credits_used_today,
-        COUNT(au.id) as requests_today
+        SUM(ABS(t.amount)) as credits_used_today,
+        COUNT(t.id) as requests_today
       FROM users u
-      JOIN api_usage au ON u.id = au.user_id
-      WHERE au.created_at > NOW() - INTERVAL '24 hours'
+      JOIN transactions t ON u.id = t.user_id
+      WHERE t.type = 'debit' 
+        AND t.description LIKE 'API usage:%'
+        AND t.created_at > NOW() - INTERVAL '24 hours'
       GROUP BY u.id, u.email, u.credits
       ORDER BY credits_used_today DESC
       LIMIT 10
     `);
 
-    // Get system health
+    // Get system health from transactions
     const systemHealth = await client.query(`
       SELECT 
         COUNT(DISTINCT user_id) as active_users_today,
         COUNT(*) as total_requests_today,
-        SUM(credits_used) as total_credits_consumed_today
-      FROM api_usage 
-      WHERE created_at > NOW() - INTERVAL '24 hours'
+        SUM(ABS(amount)) as total_credits_consumed_today
+      FROM transactions 
+      WHERE type = 'debit' 
+        AND description LIKE 'API usage:%'
+        AND created_at > NOW() - INTERVAL '24 hours'
     `);
 
     return NextResponse.json({
       success: true,
       stats: {
-        byQueryType: usageStats.rows,
+        summary: usageStats.rows[0],
         topUsers: topUsers.rows,
         systemHealth: systemHealth.rows[0]
       },
