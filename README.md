@@ -12,7 +12,6 @@ A comprehensive customer management platform built with **Next.js 14**, featurin
 - **🎨 Modern UI**: Tailwind CSS with shadcn/ui components
 - **🗄️ PostgreSQL Database**: Drizzle ORM with connection pooling
 - **⚡ High Performance**: React Query for optimized data fetching
-- 
 
 ## 🚀 Quick Start
 
@@ -155,7 +154,6 @@ The application is configured for deployment on Replit with custom domain suppor
 3. Ensure HTTPS is enabled for secure cookie transmission
 
 ## Project Structure
-
 ```
 ├── client/           # Frontend React application
 │   ├── src/
