@@ -7,8 +7,8 @@
  */
 
 // Get API URLs from environment variables
-export const API_GATEWAY_URL = import.meta.env.VITE_API_GATEWAY_URL || 'http://localhost:3000';
-export const API_SERVICE_URL = import.meta.env.VITE_API_SERVICE_URL || 'http://localhost:4000';
+export const API_GATEWAY_URL = process.env.NEXT_PUBLIC_API_GATEWAY_URL || 'http://localhost:3000';
+export const API_SERVICE_URL = process.env.NEXT_PUBLIC_API_SERVICE_URL || 'http://localhost:4000';
 
 /**
  * Response interface for all API operations
