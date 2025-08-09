@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
+import * as crypto from "crypto";
 import { Pool } from "pg";
 
 export const runtime = "nodejs";
