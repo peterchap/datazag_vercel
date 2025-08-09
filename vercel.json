@@ -1,0 +1,16 @@
+{
+  "functions": {
+    "app/**": {
+      "runtime": "nodejs20.x",
+      "regions": ["iad1"],
+      "maxDuration": 10,
+      "memory": 1024
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/apipg/:path*",
+      "destination": "https://apipg.datazag.com/:path*"
+    }
+  ]
+}
