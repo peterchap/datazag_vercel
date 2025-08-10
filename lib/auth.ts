@@ -6,6 +6,47 @@ import { db } from '@/server/db'
 import { users } from '@/shared/schema'
 import { eq } from 'drizzle-orm'
 import bcrypt from 'bcrypt'
+import { pool } from './db'
+
+// Helper to extract user ID from Authorization Bearer token
+export async function getUserFromBearerToken(request: Request): Promise<{ userId: number; error?: string } | null> {
+  try {
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return { userId: 0, error: 'Missing or invalid Authorization header' };
+    }
+
+    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    
+    // Check if token is an API key format (datazag_*)
+    if (token.startsWith('datazag_')) {
+      // Look up user by API key
+      const client = await pool.connect();
+      try {
+        const result = await client.query(
+          'SELECT ak.user_id FROM api_keys ak WHERE ak.api_key = $1 AND ak.active = true',
+          [token]
+        );
+        
+        if (result.rows.length === 0) {
+          return { userId: 0, error: 'Invalid or inactive API key' };
+        }
+        
+        return { userId: result.rows[0].user_id };
+      } finally {
+        client.release();
+      }
+    }
+    
+    // For other token formats, you could add JWT validation here
+    // For now, return error for unsupported token format
+    return { userId: 0, error: 'Unsupported token format' };
+    
+  } catch (error) {
+    console.error('Error extracting user from bearer token:', error);
+    return { userId: 0, error: 'Authentication error' };
+  }
+}
 
 export const authOptions: NextAuthOptions = {
   providers: [
