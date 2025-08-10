@@ -1,7 +1,6 @@
 {
   "functions": {
     "app/**": {
-      "runtime": "nodejs20.x",
       "maxDuration": 10,
       "memory": 1024
     }
