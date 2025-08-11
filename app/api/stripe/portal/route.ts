@@ -6,7 +6,7 @@ import { stripe } from '@/lib/stripe';
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions as any);
-  const user = session?.user as any;
+  const user = (session as any)?.user as any;
   if (!user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const client = await pool.connect();
