@@ -1,92 +1,52 @@
-// API endpoint for deleting individual API keys (admin-only)
+// Session-based delete for current user's API key
 import { NextRequest, NextResponse } from 'next/server';
-import { Pool } from 'pg';
-import { validateAdminAuth } from '@/lib/adminAuth';
-import { handleCorsPreflightRequest, validateCorsForActualRequest, handleCorsHeaders } from '@/lib/cors';
+import { pool } from '@/lib/db';
+import { getCurrentUser } from '@/lib/getCurrentUser';
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-});
-
-// Handle CORS preflight requests
-export async function OPTIONS(request: NextRequest) {
-  const corsResponse = handleCorsPreflightRequest(request);
-  if (corsResponse) return corsResponse;
-
-  // This shouldn't happen, but fallback
-  return new NextResponse(null, { status: 204 });
-}
-
-// Delete API key (admin-only)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  // Handle CORS for actual request
-  const corsError = validateCorsForActualRequest(request);
-  if (corsError) return corsError;
+  const user = await getCurrentUser(request);
+  if (!user?.id) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
 
-  // Validate admin authentication
-  const authError = validateAdminAuth(request);
-  if (authError) return authError;
+  const id = params.id;
+  if (!id || isNaN(Number(id))) {
+    return NextResponse.json({ success: false, error: 'Invalid API key ID' }, { status: 400 });
+  }
 
   const client = await pool.connect();
-  
   try {
-    const keyId = params.id;
-
-    if (!keyId || isNaN(Number(keyId))) {
-      const response = NextResponse.json({
-        success: false,
-        error: 'Invalid API key ID'
-      }, { status: 400 });
-      return handleCorsHeaders(request, response);
-    }
-
-    // Check if API key exists first
-    const existsResult = await client.query(
-      'SELECT id, key_name FROM api_keys WHERE id = $1',
-      [keyId]
+    // Delete only if the key belongs to the current user
+    const result = await client.query(
+      `
+      DELETE FROM api_keys
+      WHERE id = $1 AND user_id = $2
+      RETURNING id, key_name AS name
+      `,
+      [Number(id), String(user.id)]
     );
 
-    if (existsResult.rows.length === 0) {
-      const response = NextResponse.json({
-        success: false,
-        error: 'API key not found'
-      }, { status: 404 });
-      return handleCorsHeaders(request, response);
+    if (result.rowCount === 0) {
+      return NextResponse.json(
+        { success: false, error: 'API key not found' },
+        { status: 404 }
+      );
     }
 
-    const apiKey = existsResult.rows[0];
-
-    // Delete the API key
-    await client.query(
-      'DELETE FROM api_keys WHERE id = $1',
-      [keyId]
-    );
-
-    const response = NextResponse.json({
+    return NextResponse.json({
       success: true,
       message: 'API key deleted successfully',
-      deleted_key: {
-        id: apiKey.id,
-        name: apiKey.key_name
-      }
-    }, { status: 200 });
-
-    return handleCorsHeaders(request, response);
-
+      deleted_key: result.rows[0],
+    });
   } catch (error: any) {
-    console.error('API key deletion error:', error);
-    const response = NextResponse.json({
-      success: false,
-      error: 'Internal server error',
-      details: error.message
-    }, { status: 500 });
-
-    return handleCorsHeaders(request, response);
+    console.error('Delete API key error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Internal server error', details: error.message },
+      { status: 500 }
+    );
   } finally {
     client.release();
   }
-}

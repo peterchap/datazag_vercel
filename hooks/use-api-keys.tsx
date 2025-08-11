@@ -6,7 +6,7 @@ import { queryClient } from "@/lib/queryClient";
 
 interface ApiKey {
   id: number;
-  user_id: number;
+  user_id?: number | string;
   key: string;
   name: string;
   active: boolean;
@@ -18,51 +18,51 @@ export function useApiKeys() {
   const [showNewKey, setShowNewKey] = useState<ApiKey | null>(null);
   
   const {
-    data: apiKeys = [],
+    data,
     isLoading,
     error,
-  } = useQuery<ApiKey[]>({
+  } = useQuery<{ success: boolean; keys: ApiKey[] }>({
     queryKey: ["/api/api-keys"],
   });
   
-  const activeApiKeys = (apiKeys || []);
-  
+  const apiKeys = data?.keys ?? [];
+  const activeApiKeys = apiKeys;
+
   const createApiKeyMutation = useMutation({
     mutationFn: async (data: { name: string }) => {
-      console.log("Creating API key with data:", data);
       try {
         const res = await apiRequest("POST", "/api/api-keys", data);
-        console.log("API response status:", res.status, res.statusText);
+        if (!res.ok) throw new Error(`Error: ${res.status}: ${await res.text()}`);
         const result = await res.json();
-        console.log("API response data:", result);
-        return result;
+        return result?.key;
       } catch (error) {
         console.error("Fetch error during API key creation:", error);
         throw error;
       }
     },
     onSuccess: (newKey) => {
-      console.log("New API key created:", newKey);
       queryClient.invalidateQueries({ queryKey: ["/api/api-keys"] });
       setShowNewKey(newKey);
       toast({
         title: "API Key Created",
-        description: "Your new API key has been created. Make sure to copy it now, you won't be able to see it again.",
+        description:
+          "Your new API key has been created. Make sure to copy it now, you won't be able to see it again.",
       });
     },
     onError: (error: any) => {
-      console.error("API key creation error:", error);
       toast({
         title: "Error Creating API Key",
-        description: error.message || "An error occurred while creating your API key.",
+        description:
+          error?.message || "An error occurred while creating your API key.",
         variant: "destructive",
       });
     },
   });
-  
+
   const deleteApiKeyMutation = useMutation({
     mutationFn: async (id: number) => {
-      const res = await apiRequest("DELETE", `/api/api-keys?id=${id}`);
+      const res = await apiRequest("DELETE", `/api/api-keys/${id}`);
+      if (!res.ok) throw new Error(`Error: ${res.status}: ${await res.text()}`);
       return res.json();
     },
     onSuccess: () => {
@@ -75,12 +75,13 @@ export function useApiKeys() {
     onError: (error: any) => {
       toast({
         title: "Error Deleting API Key",
-        description: error.message || "An error occurred while deleting your API key.",
+        description:
+          error?.message || "An error occurred while deleting your API key.",
         variant: "destructive",
       });
     },
   });
-  
+
   return {
     apiKeys,
     activeApiKeys,

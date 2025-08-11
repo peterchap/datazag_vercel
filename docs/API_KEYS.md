@@ -1,77 +1,32 @@
 # API Keys Management
 
-This document describes the admin-only API key management endpoints for the DataZag portal.
+This document describes two ways to manage API keys in the portal:
 
-## Authentication
+1. Portal endpoints (session-based, recommended for the UI)
+2. Admin-only endpoints (server-to-server, protected by an admin secret with strict CORS)
 
-All API key management endpoints require admin authentication via the `X-Admin-Secret` header. This header must match the `ADMIN_API_SECRET` environment variable.
+## 1) Portal Endpoints (Session-Based)
 
-```
-X-Admin-Secret: your-secret-admin-key
-```
+These routes are meant to be called by the portal UI. They run server-side, use the logged-in session to identify the user, and talk directly to Neon.
 
-## CORS Configuration
+- GET `/api/api-keys`  
+  Lists the current user's API keys.
+- POST `/api/api-keys`  
+  Creates a new API key for the current user.
+  - Body:
+    ```json
+    { "name": "My API Key" }
+    ```
+- DELETE `/api/api-keys/:id`  
+  Deletes the specified API key if it belongs to the current user.
 
-API key endpoints have strict CORS policies. Requests are only allowed from:
+Auth: Session cookie (credentials: include). No `X-Admin-Secret` required or used.  
+CORS: Not applicable for same-origin use in the portal UI.
 
-- `https://portal.datazag.com`
-- `http://localhost:3000`
-- `https://datazag-vercel.vercel.app`
-- `https://datazag-vercel-datazag.vercel.app`
-- `https://datazag-vercel-git-master-datazag.vercel.app`
+Response shapes:
 
-Server-to-server requests (without an `Origin` header) bypass CORS restrictions.
-
-## Endpoints
-
-### POST /api/api-keys
-
-Creates a new API key for a specified user.
-
-**Headers:**
-- `X-Admin-Secret`: Required admin secret
-- `Content-Type: application/json`
-
-**Request Body:**
 ```json
-{
-  "userId": "user-id-string",
-  "name": "optional-key-name"
-}
-```
-
-**Response (201 Created):**
-```json
-{
-  "success": true,
-  "message": "API key created successfully",
-  "key": {
-    "id": 123,
-    "key": "datazag_abc123...",
-    "name": "My API Key",
-    "active": true,
-    "created_at": "2024-01-01T00:00:00.000Z"
-  },
-  "user": {
-    "id": "user-id",
-    "email": "user@example.com",
-    "credits": 1000
-  }
-}
-```
-
-### GET /api/api-keys
-
-Retrieves all API keys or keys for a specific user.
-
-**Headers:**
-- `X-Admin-Secret`: Required admin secret
-
-**Query Parameters:**
-- `userId` (optional): Filter keys for a specific user
-
-**Response (200 OK):**
-```json
+// GET
 {
   "success": true,
   "keys": [
@@ -80,95 +35,53 @@ Retrieves all API keys or keys for a specific user.
       "key": "datazag_abc123...",
       "name": "My API Key",
       "active": true,
-      "created_at": "2024-01-01T00:00:00.000Z",
-      "user_email": "user@example.com",
-      "user_credits": 1000
+      "created_at": "2024-01-01T00:00:00.000Z"
     }
   ]
 }
-```
 
-### DELETE /api/api-keys/:id
+// POST
+{
+  "success": true,
+  "key": {
+    "id": 123,
+    "key": "datazag_abc123...",
+    "name": "My API Key",
+    "active": true,
+    "created_at": "2024-01-01T00:00:00.000Z"
+  }
+}
 
-Deletes an API key by ID. Admin can delete any key without ownership constraints.
-
-**Headers:**
-- `X-Admin-Secret`: Required admin secret
-
-**URL Parameters:**
-- `id`: The numeric ID of the API key to delete
-
-**Response (200 OK):**
-```json
+// DELETE
 {
   "success": true,
   "message": "API key deleted successfully",
-  "deleted_key": {
-    "id": 123,
-    "name": "My API Key"
-  }
+  "deleted_key": { "id": 123, "name": "My API Key" }
 }
 ```
 
-**Response (404 Not Found):**
-```json
-{
-  "success": false,
-  "error": "API key not found"
-}
-```
+## 2) Admin-Only Endpoints (Server-to-Server)
 
-## Error Responses
+These are designed for back-office or other services to manage keys across any user.
 
-### 401 Unauthorized
-Missing or invalid `X-Admin-Secret` header:
-```json
-{
-  "success": false,
-  "error": "Unauthorized - Invalid admin secret"
-}
-```
+- POST `/admin/api-keys`  
+  Creates a key for a specified user.
+  - Headers:
+    - `X-Admin-Secret: your-admin-secret`
+  - Body:
+    ```json
+    { "userId": "user-id", "name": "Key name" }
+    ```
+- GET `/admin/api-keys?userId=...`  
+  Lists all keys, optionally filtered by `userId`.
+- DELETE `/admin/api-keys/:id`  
+  Deletes a key by ID.
 
-### 403 Forbidden  
-Request from disallowed origin:
-```json
-{
-  "success": false,
-  "error": "Origin not allowed"
-}
-```
-
-### 400 Bad Request
-Invalid request data:
-```json
-{
-  "success": false,
-  "error": "userId is required"
-}
-```
-
-### 500 Internal Server Error
-Server configuration or database error:
-```json
-{
-  "success": false,
-  "error": "Internal server error",
-  "details": "Error details..."
-}
-```
-
-## Environment Configuration
-
-Set the following environment variable:
-
-```bash
-ADMIN_API_SECRET=your-secure-admin-secret-key
-```
+Auth: `X-Admin-Secret` must match `ADMIN_API_SECRET`.  
+CORS: Strictly allow-listed. Server-to-server calls without an `Origin` header are allowed.
 
 ## Notes
 
-- The Public API should NOT write to the Neon database
-- Public API will only report usage to the portal's usage endpoint
-- Generated API keys use the format: `datazag_[64-character-hex-string]`
-- All timestamps are in ISO 8601 format (UTC)
-- Redis sync has been removed from this implementation
+- Schema used by these routes expects `api_keys` table with columns:
+  - `id`, `user_id`, `api_key`, `key_name`, `is_active`, `created_at`, `updated_at`
+- Keys are generated with the `datazag_` prefix and 32-byte random hex.

@@ -1,190 +1,97 @@
-// API endpoint for creating and managing API keys (admin-only)
+// Session-based API key management for the portal UI (no admin secret, no CORS hurdles)
 import { NextRequest, NextResponse } from 'next/server';
-import { Pool } from 'pg';
 import crypto from 'crypto';
-import { validateAdminAuth } from '@/lib/adminAuth';
-import { handleCorsPreflightRequest, validateCorsForActualRequest, handleCorsHeaders } from '@/lib/cors';
+import { pool } from '@/lib/db';
+import { getCurrentUser } from '@/lib/getCurrentUser';
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-});
-
-// Generate a secure API key
 function generateAPIKey() {
   return 'datazag_' + crypto.randomBytes(32).toString('hex');
 }
 
-// Handle CORS preflight requests
-export async function OPTIONS(request: NextRequest) {
-  const corsResponse = handleCorsPreflightRequest(request);
-  if (corsResponse) return corsResponse;
-
-  // This shouldn't happen, but fallback
-  return new NextResponse(null, { status: 204 });
-}
-
-// Create API key (admin-only)
-export async function POST(request: NextRequest) {
-  // Handle CORS for actual request
-  const corsError = validateCorsForActualRequest(request);
-  if (corsError) return corsError;
-
-  // Validate admin authentication
-  const authError = validateAdminAuth(request);
-  if (authError) return authError;
+// GET /api/api-keys - list current user's keys
+export async function GET(request: NextRequest) {
+  const user = await getCurrentUser(request);
+  if (!user?.id) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
 
   const client = await pool.connect();
-  
   try {
-    const body = await request.json();
-    const { userId, name } = body;
-
-    if (!userId) {
-      const response = NextResponse.json({
-        success: false,
-        error: 'userId is required'
-      }, { status: 400 });
-      return handleCorsHeaders(request, response);
-    }
-
-    if (!name) {
-      const response = NextResponse.json({
-        success: false,
-        error: 'name is required'
-      }, { status: 400 });
-      return handleCorsHeaders(request, response);
-    }
-
-    // Generate API key
-    const apiKey = generateAPIKey();
-    
-    // Get user details
-    const userResult = await client.query(
-      'SELECT id, email, credits FROM users WHERE id = $1',
-      [userId]
+    const result = await client.query(
+      `
+      SELECT 
+        id,
+        api_key AS key,
+        key_name AS name,
+        is_active AS active,
+        created_at
+      FROM api_keys
+      WHERE user_id = $1
+      ORDER BY created_at DESC
+      `,
+      [String(user.id)]
     );
 
-    if (userResult.rows.length === 0) {
-      const response = NextResponse.json({
-        success: false,
-        error: 'User not found'
-      }, { status: 404 });
-      return handleCorsHeaders(request, response);
-    }
-
-    const user = userResult.rows[0];
-
-    // Begin transaction
-    await client.query('BEGIN');
-
-    // Create API key in database
-    const keyResult = await client.query(`
-      INSERT INTO api_keys (
-        user_id, api_key, key_name, 
-        is_active, created_at, updated_at
-      ) VALUES ($1, $2, $3, true, NOW(), NOW())
-      RETURNING id, api_key, key_name, is_active, created_at
-    `, [userId, apiKey, name]);
-
-    const newKey = keyResult.rows[0];
-
-    await client.query('COMMIT');
-
-    const response = NextResponse.json({
+    return NextResponse.json({
       success: true,
-      message: 'API key created successfully',
-      key: {
-        id: newKey.id,
-        key: newKey.api_key,
-        name: newKey.key_name,
-        active: newKey.is_active,
-        created_at: newKey.created_at
-      },
-      user: {
-        id: user.id,
-        email: user.email,
-        credits: user.credits
-      }
-    }, { status: 201 });
-
-    return handleCorsHeaders(request, response);
-
+      keys: result.rows,
+    });
   } catch (error: any) {
-    await client.query('ROLLBACK');
-    console.error('API key creation error:', error);
-    
-    const response = NextResponse.json({
-      success: false,
-      error: 'Internal server error',
-      details: error.message
-    }, { status: 500 });
-
-    return handleCorsHeaders(request, response);
+    console.error('Get API keys error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Internal server error', details: error.message },
+      { status: 500 }
+    );
   } finally {
     client.release();
   }
 }
 
-// Get API keys (admin-only)
-export async function GET(request: NextRequest) {
-  // Handle CORS for actual request
-  const corsError = validateCorsForActualRequest(request);
-  if (corsError) return corsError;
-
-  // Validate admin authentication
-  const authError = validateAdminAuth(request);
-  if (authError) return authError;
+// POST /api/api-keys - create a key for current user
+export async function POST(request: NextRequest) {
+  const user = await getCurrentUser(request);
+  if (!user?.id) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
 
   const client = await pool.connect();
-  
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-
-    let query = `
-      SELECT 
-        ak.id, ak.api_key, ak.key_name, 
-        ak.is_active, ak.created_at,
-        u.email, u.credits
-      FROM api_keys ak
-      JOIN users u ON ak.user_id = u.id
-    `;
-    
-    let params: any[] = [];
-    
-    if (userId) {
-      query += ' WHERE ak.user_id = $1';
-      params.push(userId);
+    const body = await request.json().catch(() => ({}));
+    const name = body?.name;
+    if (!name || typeof name !== 'string') {
+      return NextResponse.json({ success: false, error: 'name is required' }, { status: 400 });
     }
-    
-    query += ' ORDER BY ak.created_at DESC';
 
-    const result = await client.query(query, params);
+    const apiKey = generateAPIKey();
 
-    const response = NextResponse.json({
-      success: true,
-      keys: result.rows.map(row => ({
-        id: row.id,
-        key: row.api_key,
-        name: row.key_name,
-        active: row.is_active,
-        created_at: row.created_at,
-        user_email: row.email,
-        user_credits: row.credits
-      }))
-    });
+    await client.query('BEGIN');
+    const inserted = await client.query(
+      `
+      INSERT INTO api_keys (
+        user_id, api_key, key_name, is_active, created_at, updated_at
+      ) VALUES ($1, $2, $3, true, NOW(), NOW())
+      RETURNING id, api_key AS key, key_name AS name, is_active AS active, created_at
+      `,
+      [String(user.id), apiKey, name]
+    );
+    await client.query('COMMIT');
 
-    return handleCorsHeaders(request, response);
+    // You may also sync to Redis here if desired.
 
+    return NextResponse.json(
+      {
+        success: true,
+        key: inserted.rows[0],
+      },
+      { status: 201 }
+    );
   } catch (error: any) {
-    console.error('API keys retrieval error:', error);
-    const response = NextResponse.json({
-      success: false,
-      error: error.message
-    }, { status: 500 });
-
-    return handleCorsHeaders(request, response);
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('Create API key error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Internal server error', details: error.message },
+      { status: 500 }
+    );
   } finally {
     client.release();
   }
