@@ -1,8 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    serverComponentsExternalPackages: ['pg', 'drizzle-orm']
-  },
+    serverComponentsExternalPackages: ['pg', 'drizzle-orm'],
+    
   env: {
     DATABASE_URL: process.env.DATABASE_URL,
     NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
