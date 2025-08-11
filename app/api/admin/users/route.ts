@@ -5,6 +5,8 @@ import { db } from '@/server/db';
 import { users, USER_ROLES } from '@/shared/schema';
 import { eq } from 'drizzle-orm';
 
+export const dynamic = 'force-dynamic';
+
 async function isAdmin(session: any) {
   if (!session?.user?.id) return false;
   

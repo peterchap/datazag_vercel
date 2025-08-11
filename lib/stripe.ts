@@ -1,4 +1,10 @@
 import Stripe from 'stripe';
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+if (!stripeSecretKey && process.env.NODE_ENV === 'production') {
+  console.warn('STRIPE_SECRET_KEY not set. Stripe functionality will be unavailable.');
+}
+
+export const stripe = stripeSecretKey ? new Stripe(stripeSecretKey, {
   apiVersion: '2025-04-30.basil',
-});
+}) : null;

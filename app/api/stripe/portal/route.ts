@@ -4,9 +4,15 @@ import { authOptions } from '@/lib/auth';
 import { pool } from '@/lib/db';
 import { stripe } from '@/lib/stripe';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions as any);
-  const user = session?.user as any;
+  if (!stripe) {
+    return NextResponse.json({ error: 'Stripe not configured' }, { status: 500 });
+  }
+  
+  const session = await getServerSession(authOptions);
+  const user = (session as any)?.user;
   if (!user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const client = await pool.connect();

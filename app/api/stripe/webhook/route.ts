@@ -2,10 +2,15 @@ import { headers } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { pool } from '@/lib/db';
+import { PriceToPlan, type PlanSlug } from '@/lib/planConfig';
 
-export const dynamic = 'force-dynamic'; // ensure no caching
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
+  if (!stripe) {
+    return NextResponse.json({ error: 'Stripe not configured' }, { status: 500 });
+  }
+  
   const sig = headers().get('stripe-signature');
   const buf = await req.text();
 
@@ -46,26 +51,41 @@ export async function POST(req: NextRequest) {
 }
 
 async function upsertSubscription(userId: string, subscriptionId: string) {
-  const sub = await stripe.subscriptions.retrieve(subscriptionId);
+  if (!stripe) return;
+  const sub = await stripe.subscriptions.retrieve(subscriptionId, { expand: ['items.data.price'] });
   await syncSubscription(userId, sub);
 }
 
+function pickPlanFromStripe(sub: any): PlanSlug | null {
+  const items = sub?.items?.data || [];
+  const priceId: string | undefined = items[0]?.price?.id;
+  if (!priceId) return null;
+  const plan = PriceToPlan[priceId];
+  return plan || null;
+}
+
 async function syncSubscription(userId: string, sub: any) {
+  const plan = sub.status === 'canceled' || sub.status === 'incomplete_expired'
+    ? 'community'
+    : pickPlanFromStripe(sub) || 'community';
+
   const client = await pool.connect();
   try {
     await client.query(
       `UPDATE users
-       SET stripe_subscription_id = $1,
-           subscription_status = $2,
-           subscription_price_id = $3,
-           subscription_current_period_end = to_timestamp($4),
-           updated_at = NOW()
-       WHERE id = $5`,
+         SET stripe_subscription_id = $1,
+             subscription_status = $2,
+             subscription_price_id = $3,
+             subscription_current_period_end = to_timestamp($4),
+             plan_slug = $5,
+             updated_at = NOW()
+       WHERE id = $6`,
       [
-        sub.id,
-        sub.status,
+        sub.id || null,
+        sub.status || null,
         sub.items?.data?.[0]?.price?.id ?? null,
         sub.current_period_end ?? null,
+        plan,
         userId,
       ]
     );

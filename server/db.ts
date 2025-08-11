@@ -3,9 +3,9 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
 
 // Check for database URL
-if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
+if (!process.env.DATABASE_URL && process.env.NODE_ENV !== 'development') {
+  console.warn(
+    "DATABASE_URL not set. Database connections will be unavailable.",
   );
 }
 
