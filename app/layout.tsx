@@ -1,6 +1,6 @@
 'use client'
 
-// import { Inter } from 'next/font/google'
+import { Inter } from 'next/font/google'
 import { ThemeProvider } from 'next-themes'
 import { Toaster } from '@/components/ui/toaster'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -9,7 +9,7 @@ import { CurrencyProvider } from '@/components/currency-selector'
 import { QueryProviders } from './providers/query-client'
 import './globals.css'
 
-// const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ subsets: ['latin'] })
 
 export default function RootLayout({
   children,
@@ -18,7 +18,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body style={{fontFamily: 'Inter, system-ui, sans-serif', margin: 0, padding: 0}}>
+      <body className={inter.className} style={{fontFamily: 'Inter, system-ui, sans-serif', margin: 0, padding: 0}}>
         <QueryProviders>
           <ThemeProvider attribute="class" defaultTheme="light">
             <AuthProvider>

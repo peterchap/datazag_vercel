@@ -9,13 +9,6 @@ export default defineConfig({
   schema: "./shared/schema.ts",
   dialect: "postgresql",
   dbCredentials: {
-    url: process.env.DATABASE_URL,
-  },
-  // Performance optimizations
-  verbose: true,
-  strict: true,
-  // Enable introspection for better type safety
-  introspect: {
-    casing: 'camel',
+    url: process.env.DATABASE_URL!,
   },
 });
