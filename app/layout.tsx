@@ -15,7 +15,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body style={{fontFamily: 'Inter, system-ui, sans-serif', margin: 0, padding: 0}}>
+      <body className="min-h-screen font-inter m-0 p-0 bg-background text-foreground">
         <QueryProviders>
           <ThemeProvider attribute="class" defaultTheme="light">
             <AuthProvider>

@@ -1,6 +1,7 @@
 import NextAuth, { type NextAuthOptions } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import Google from 'next-auth/providers/google';
+import GitHubProvider from "next-auth/providers/github";
 import { pool } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 
@@ -40,6 +41,10 @@ export const authOptions: NextAuthOptions = {
       },
     }),
     // OAuth (enable when you add env vars)
+    GitHubProvider({
+      clientId: process.env.GITHUB_ID!,
+      clientSecret: process.env.GITHUB_SECRET!,
+    }),
     Google({
       clientId: process.env.OAUTH_GOOGLE_CLIENT_ID ?? '',
       clientSecret: process.env.OAUTH_GOOGLE_CLIENT_SECRET ?? '',
