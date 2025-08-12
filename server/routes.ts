@@ -865,17 +865,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // OAuth debug endpoint
   app.get('/api/oauth/debug', (req, res) => {
+    // Import here to avoid circular import issues if any
+    const { BASE_URL, googleConfig, githubConfig, microsoftConfig, linkedinConfig } = require('./oauth-config');
     res.json({
-      baseUrl: 'https://client.datazag.com',
+      baseUrl: BASE_URL,
       environment: process.env.NODE_ENV || 'development',
       replSlug: process.env.REPL_SLUG,
       replOwner: process.env.REPL_OWNER,
       callbackUrls: {
-        google: 'https://client.datazag.com/auth/google/callback',
-        github: 'https://client.datazag.com/auth/github/callback',
-        linkedin: 'https://client.datazag.com/auth/linkedin/callback'
-      },
-      actualUrls: 'OAuth strategies now use correct client.datazag.com URLs'
+        google: googleConfig.callbackURL,
+        github: githubConfig.callbackURL,
+        microsoft: microsoftConfig.callbackURL,
+        linkedin: linkedinConfig.callbackURL
+      }
     });
   });
 

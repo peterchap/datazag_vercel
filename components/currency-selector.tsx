@@ -57,28 +57,30 @@ const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined
 export function CurrencyProvider({ children }: { children: ReactNode }) {
   // Fetch exchange rates from our API
   const { data: exchangeRates, isLoading } = useQuery<Record<string, number>>({
-    queryKey: ["/api/exchange-rates"],
-    staleTime: 1000 * 60 * 60, // Cache for 1 hour
-    refetchOnWindowFocus: false,
-    // Use custom error handling to prevent JSON parsing errors
-    gcTime: 3600000, // Keep the data cached for 1 hour
-    // Provide fallback values if the API fails
-    initialData: {
-      USD: 1.0,
-      EUR: 0.93,
-      GBP: 0.79,
-      JPY: 155.0,
-      CAD: 1.36,
-      AUD: 1.52,
-      CHF: 0.91,
-      CNY: 7.23, 
-      INR: 83.5,
-      SGD: 1.35,
-      ZAR: 18.61,
-      NZD: 1.64
-    }
-  });
-  
+  queryKey: ["/api/exchange-rates"],
+  queryFn: async () => {
+    const res = await fetch("/api/exchange-rates");
+    if (!res.ok) throw new Error("Failed to fetch exchange rates");
+    return res.json();
+  },
+  staleTime: 1000 * 60 * 60, // Cache for 1 hour
+  refetchOnWindowFocus: false,
+  gcTime: 3600000, // Keep the data cached for 1 hour
+  initialData: {
+    USD: 1.0,
+    EUR: 0.93,
+    GBP: 0.79,
+    JPY: 155.0,
+    CAD: 1.36,
+    AUD: 1.52,
+    CHF: 0.91,
+    CNY: 7.23, 
+    INR: 83.5,
+    SGD: 1.35,
+    ZAR: 18.61,
+    NZD: 1.64
+  }
+});
   // Convert the currency definitions to include exchange rates
   const currencies: CurrencyInfo[] = currencyDefinitions.map(currency => {
     const rate = currency.code === "USD" 

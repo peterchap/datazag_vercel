@@ -7,19 +7,22 @@
 
 // Base URL for the application (for callback URLs)
 function detectBaseUrl(): string {
-  // Use production domain for OAuth callbacks
-  const productionDomain = 'client.datazag.com';
-  
-  console.log('OAuth Base URL detection:', {
-    NODE_ENV: process.env.NODE_ENV,
-    REPLIT_DOMAIN: process.env.REPLIT_DOMAIN,
-    productionDomain: productionDomain
-  });
-  
-  return `https://${productionDomain}`;
+  // If explicitly set, use env var
+  if (process.env.OAUTH_BASE_URL) {
+    return process.env.OAUTH_BASE_URL;
+  }
+  if (process.env.NODE_ENV === "production") {
+    return "https://client.datazag.com";
+  }
+  return "http://localhost:3000";
 }
 
 export const BASE_URL = detectBaseUrl();
+
+console.log('==== OAUTH BASE_URL RESOLVED ====');
+console.log('Resolved OAuth BASE_URL:', BASE_URL);
+console.log('Environment:', process.env.NODE_ENV);
+console.log('=================================');
 
 export interface OAuthProviderConfig {
   enabled: boolean;
