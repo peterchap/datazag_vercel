@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { getQueryFn } from '@/lib/queryClient';
+import React, { useMemo, useState } from 'react';
+import { useAutoFetch } from '@/hooks/use-auto-fetch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { format, subDays } from 'date-fns';
@@ -33,15 +32,17 @@ export default function ApiUsageAnalytics({ className }: ApiUsageAnalyticsProps)
   const [dateRange, setDateRange] = useState(defaultDateRange);
   const [view, setView] = useState<'daily' | 'endpoints' | 'credits'>('daily');
   
-  const { data, isLoading, error } = useQuery<any[]>({
-    queryKey: [
-      '/api/api-usage/analytics',
-      dateRange.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined,
-      dateRange.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined
-    ],
-    queryFn: getQueryFn(),
-    enabled: !!(dateRange.from && dateRange.to),
-  });
+  const queryUrl = useMemo(() => {
+    if (!dateRange.from || !dateRange.to) return null as string | null;
+    const from = format(dateRange.from, 'yyyy-MM-dd');
+    const to = format(dateRange.to, 'yyyy-MM-dd');
+    return `/api/api-usage/analytics?from=${from}&to=${to}`;
+  }, [dateRange]);
+
+  const { data, loading: isLoading, error, refetch } = useAutoFetch<any[]>(
+    queryUrl || '/api/api-usage/analytics',
+    { enabled: !!queryUrl }
+  );
   
   const prepareDataForChart = () => {
     if (!data || !Array.isArray(data) || data.length === 0) {
@@ -258,7 +259,7 @@ export default function ApiUsageAnalytics({ className }: ApiUsageAnalyticsProps)
             </ResponsiveContainer>
           )}
           
-          {error && (
+          {Boolean(error) && (
             <Alert>
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>Warning</AlertTitle>

@@ -1,12 +1,13 @@
 // Session-based delete for current user's API key
 import { NextRequest, NextResponse } from 'next/server';
-import { pool } from '@/lib/db';
+import { pool } from '@/lib/drizzle';
 import { getCurrentUser } from '@/lib/getCurrentUser';
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } } | any
 ) {
+  const { params } = context as { params: { id: string } };
   const user = await getCurrentUser(request);
   if (!user?.id) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
@@ -24,7 +25,7 @@ export async function DELETE(
       `
       DELETE FROM api_keys
       WHERE id = $1 AND user_id = $2
-      RETURNING id, key_name AS name
+      RETURNING id, name AS name
       `,
       [Number(id), String(user.id)]
     );

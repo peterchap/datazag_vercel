@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { timeAgo, truncateMiddle } from "@/lib/utils";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useAutoFetch } from "@/hooks/use-auto-fetch";
 
 interface ActivityTableProps {
   className?: string;
@@ -32,14 +32,14 @@ interface Transaction {
 
 export default function ActivityTable({ className }: ActivityTableProps) {
   const [period, setPeriod] = useState("7");
-  
-  const { data: transactions = [], refetch } = useQuery<Transaction[]>({
-    queryKey: ["/api/transactions"],
-    refetchInterval: 5000, // Auto-refresh every 5 seconds
-  });
+  const { data: transactions, loading } = useAutoFetch<Transaction[]>(
+    "/api/transactions",
+    { intervalMs: 5000, initialData: [] }
+  );
   
   // Filter transactions based on selected period
-  const filteredTransactions = transactions.filter(tx => {
+  const safeTx = Array.isArray(transactions) ? transactions : [];
+  const filteredTransactions = safeTx.filter(tx => {
     const txDate = new Date(tx.createdAt);
     const now = new Date();
     const daysDiff = Math.floor((now.getTime() - txDate.getTime()) / (1000 * 60 * 60 * 24));
@@ -76,7 +76,13 @@ export default function ActivityTable({ className }: ActivityTableProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredTransactions.length === 0 ? (
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-6 text-gray-500">
+                    Loading recent activity...
+                  </TableCell>
+                </TableRow>
+              ) : filteredTransactions.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-6 text-gray-500">
                     No activity in the selected time period

@@ -1,13 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { pool } from '@/lib/db';
+import { pool } from '@/lib/drizzle';
 import { stripe } from '@/lib/stripe';
 
+interface SessionUser {
+  id: string;
+  email?: string | null;
+  role?: string;
+  credits?: number;
+  company?: string | null;
+}
+
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions as any);
-  const user = session?.user as any;
-  if (!user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const session = await getServerSession(authOptions);
+  const user = session?.user as SessionUser | undefined;
+  if (!user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
   const client = await pool.connect();
   try {

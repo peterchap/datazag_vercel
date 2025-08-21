@@ -1,7 +1,9 @@
 import request from "supertest";
+import { beforeAll, describe, it, expect } from "@jest/globals";
 
 // Use dynamic import to avoid top-level await issues in Jest
-let app;
+import type { Application } from "express";
+let app: Application;
 
 beforeAll(async () => {
   const { createTestApp } = await import("../server/test-app");

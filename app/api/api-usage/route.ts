@@ -1,21 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@/server/db';
+import { db } from '@/lib/drizzle';
 import { apiUsage } from '@/shared/schema';
 import { eq, desc } from 'drizzle-orm';
 
+interface SessionUser {
+  id: string;
+  email?: string | null;
+  role?: string;
+}
+
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.id) {
+  const session = await getServerSession(authOptions);
+  const user = session?.user as SessionUser | undefined;
+  if (!user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const usage = await db.select()
       .from(apiUsage)
-      .where(eq(apiUsage.userId, parseInt(session.user.id)))
+  .where(eq(apiUsage.userId, parseInt(user.id)))
       .orderBy(desc(apiUsage.createdAt))
       .limit(100);
 

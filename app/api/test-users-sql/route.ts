@@ -1,7 +1,8 @@
 // Simple test users API using direct SQL
 import { NextResponse } from 'next/server';
 import { Pool } from 'pg';
-import bcrypt from 'bcrypt';
+// Using bcryptjs to avoid native binary dependency issues
+import bcrypt from 'bcryptjs';
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,

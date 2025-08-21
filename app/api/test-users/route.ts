@@ -1,8 +1,9 @@
 // API endpoint to create test users
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/server/db';
+import { db } from '@/lib/drizzle';
 import { users } from '@/shared/schema';
-import bcrypt from 'bcrypt';
+// Using bcryptjs (pure JS) to avoid native module build issues in Next.js
+import bcrypt from 'bcryptjs';
 
 export async function POST() {
   try {

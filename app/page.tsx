@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic'; // auth redirect logic requires runtime session
+
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/use-auth'

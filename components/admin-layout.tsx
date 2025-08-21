@@ -73,36 +73,31 @@ export default function AdminLayout({
                 <Link 
                   key={item.href} 
                   href={item.href}
+                  className={`block py-2 px-3 rounded transition-colors ${
+                    pathname === item.href 
+                      ? 'bg-webflow-primary text-white' 
+                      : 'text-webflow-text-white hover:bg-webflow-card-bg hover:text-webflow-heading'
+                  }`}
                 >
-                  <a 
-                    className={`block py-2 px-3 rounded transition-colors ${
-                      pathname === item.href 
-                        ? 'bg-webflow-primary text-white' 
-                        : 'text-webflow-text-white hover:bg-webflow-card-bg hover:text-webflow-heading'
-                    }`}
-                  >
-                    {item.label}
-                  </a>
+                  {item.label}
                 </Link>
               ))}
             </nav>
             
             <div className="mt-8 pt-4 border-t border-webflow-border">
-              <Link href="/dashboard">
-                <a className="flex items-center text-webflow-accent hover:text-webflow-heading transition-colors">
-                  <svg 
-                    width="16" 
-                    height="16" 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="2" 
-                    className="mr-2"
-                  >
-                    <path d="M15 18l-6-6 6-6" />
-                  </svg>
-                  Back to Customer Portal
-                </a>
+              <Link href="/dashboard" className="flex items-center text-webflow-accent hover:text-webflow-heading transition-colors">
+                <svg 
+                  width="16" 
+                  height="16" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="2" 
+                  className="mr-2"
+                >
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+                Back to Customer Portal
               </Link>
             </div>
           </div>

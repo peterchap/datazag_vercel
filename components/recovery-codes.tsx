@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Copy, AlertTriangle, ShieldCheck } from "lucide-react";
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { apiRequest, queryClient } from '@/lib/queryClient';
+import { apiRequest } from '@/lib/queryClient';
+import { useAutoFetch } from '@/hooks/use-auto-fetch';
 
 interface RecoveryCodesProps {
   userId: number;
@@ -19,40 +19,35 @@ export function RecoveryCodes({ userId }: RecoveryCodesProps) {
   // Get the number of remaining recovery codes
   const { 
     data: countData,
-    isLoading: isCountLoading
-  } = useQuery<{count: number}>({
-    queryKey: ['/api/recovery-codes/count'],
-    enabled: !!userId,
-  });
+    loading: isCountLoading,
+    refetch: refetchCount
+  } = useAutoFetch<{count: number}>("/api/recovery-codes/count", { enabled: !!userId });
   
-  // Mutation to generate recovery codes
-  const generateMutation = useMutation({
-    mutationFn: async () => {
+  const [isGenerating, setIsGenerating] = useState(false);
+  // Generate recovery codes
+  const handleGenerateCodes = async () => {
+    try {
+      setIsGenerating(true);
       const response = await apiRequest('POST', '/api/recovery-codes/generate');
-      return response.json();
-    },
-    onSuccess: (data) => {
+      const data = await response.json();
       if (data.codes) {
         setCodes(data.codes);
         setShowCodes(true);
-        queryClient.invalidateQueries({ queryKey: ['/api/recovery-codes/count'] });
+        await refetchCount();
         toast({
           title: "Recovery codes generated!",
           description: "Make sure to save these codes securely.",
         });
       }
-    },
-    onError: (error: Error) => {
+    } catch (error: any) {
       toast({
         title: "Failed to generate recovery codes",
         description: error.message,
         variant: "destructive",
       });
-    },
-  });
-  
-  const handleGenerateCodes = () => {
-    generateMutation.mutate();
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   // Copy codes to clipboard
@@ -157,17 +152,17 @@ export function RecoveryCodes({ userId }: RecoveryCodesProps) {
             <Button 
               onClick={() => setShowCodes(false)}
               variant="ghost"
-              disabled={generateMutation.isPending}
+              disabled={isGenerating}
             >
               Close
             </Button>
           )}
           <Button 
             onClick={handleGenerateCodes}
-            disabled={generateMutation.isPending}
+            disabled={isGenerating}
             className={!showCodes ? 'ml-auto' : ''}
           >
-            {generateMutation.isPending ? (
+            {isGenerating ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Generating...

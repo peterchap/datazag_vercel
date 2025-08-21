@@ -1,5 +1,8 @@
 'use client'
 
+// Session/user data required at runtime; disable static prerender.
+export const dynamic = 'force-dynamic';
+
 import { useState } from "react";
 import Layout from "@/components/layout";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";

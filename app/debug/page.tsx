@@ -1,6 +1,8 @@
 // Simple test page to debug API key creation
 'use client'
 
+export const dynamic = 'force-dynamic'; // debug page uses runtime fetch
+
 import { useState } from 'react';
 
 export default function DebugPage() {

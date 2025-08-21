@@ -1,26 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@/server/db';
+import { db } from '@/lib/drizzle';
 import { users, apiKeys, transactions, apiUsage, USER_ROLES } from '@/shared/schema';
 import { count, sum, eq } from 'drizzle-orm';
 
+interface SessionUser {
+  id: string;
+  email?: string | null;
+  role?: string;
+  credits?: number;
+}
+
 async function isAdmin(session: any) {
-  if (!session?.user?.id) return false;
-  
-  const [user] = await db.select()
+  const user = session?.user as SessionUser | undefined;
+  if (!user?.id) return false;
+  const [dbUser] = await db.select()
     .from(users)
-    .where(eq(users.id, parseInt(session.user.id)))
+    .where(eq(users.id, parseInt(user.id)))
     .limit(1);
-    
-  return user?.role === USER_ROLES.BUSINESS_ADMIN || user?.role === USER_ROLES.CLIENT_ADMIN;
+  return dbUser?.role === USER_ROLES.BUSINESS_ADMIN || dbUser?.role === USER_ROLES.CLIENT_ADMIN;
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.id) {
+  const session = await getServerSession(authOptions);
+  const user = session?.user as SessionUser | undefined;
+  if (!user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

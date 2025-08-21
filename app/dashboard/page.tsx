@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic'; // session-dependent dashboard
+
 import Layout from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +13,7 @@ import ActivityTable from "@/components/activity-table";
 import CreditBundles from "@/components/credit-bundles";
 import { Coins, LineChart, Wallet, Key, CreditCard } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { useQuery } from "@tanstack/react-query";
+import { useAutoFetch } from "@/hooks/use-auto-fetch";
 import { formatNumber } from "@/lib/utils";
 import { useApiKeys } from "@/hooks/use-api-keys";
 import type { User } from "@/shared/schema";
@@ -21,16 +23,13 @@ export default function Dashboard() {
   const { activeApiKeys } = useApiKeys();
   
   // Get transaction stats with auto-refresh
-  const { data: transactions = [], error: transactionsError } = useQuery<any[]>({
-    queryKey: ["/api/transactions"],
-    refetchInterval: 10000, // Refresh every 10 seconds
-  });
-  
+  const { data: transactions = [], error: transactionsError } = useAutoFetch<any[]>(
+    "/api/transactions",
+    { intervalMs: 10000 }
+  );
+
   // Fetch updated user data
-  const { data: userData } = useQuery<User>({
-    queryKey: ["/api/me"],
-    refetchInterval: 5000, // Refresh every 5 seconds
-  });
+  const { data: userData } = useAutoFetch<User>("/api/me", { intervalMs: 5000 });
   
   // Use the latest user data
   const currentUser = userData || user;

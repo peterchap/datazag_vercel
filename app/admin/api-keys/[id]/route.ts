@@ -1,6 +1,6 @@
 // Admin-only delete (moved), retains X-Admin-Secret + strict CORS
 import { NextRequest, NextResponse } from 'next/server';
-import { pool } from '@/lib/db';
+import { pool } from '@/lib/drizzle';
 import {
   handleCorsPreflightRequest,
   validateCorsForActualRequest,
@@ -17,8 +17,9 @@ export async function OPTIONS(request: NextRequest) {
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } } | any
 ) {
+  const { params } = context as { params: { id: string } };
   const corsError = validateCorsForActualRequest(request);
   if (corsError) return corsError;
 
@@ -37,7 +38,7 @@ export async function DELETE(
     }
 
     const exists = await client.query(
-      'SELECT id, key_name FROM api_keys WHERE id = $1',
+      'SELECT id, name FROM api_keys WHERE id = $1',
       [Number(keyId)]
     );
     if (exists.rows.length === 0) {
@@ -48,14 +49,14 @@ export async function DELETE(
       return handleCorsHeaders(request, response);
     }
 
-    const apiKey = exists.rows[0];
+  const apiKey = exists.rows[0];
     await client.query('DELETE FROM api_keys WHERE id = $1', [Number(keyId)]);
 
     const response = NextResponse.json(
       {
         success: true,
         message: 'API key deleted successfully',
-        deleted_key: { id: apiKey.id, name: apiKey.key_name },
+  deleted_key: { id: apiKey.id, name: apiKey.name },
       },
       { status: 200 }
     );

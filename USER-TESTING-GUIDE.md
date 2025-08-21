@@ -3,9 +3,11 @@
 ## 🏢 **3-Tier User System Overview**
 
 ### **1. BUSINESS_ADMIN (DataZag Level)**
+
 **Role**: `business_admin`  
 **Scope**: Platform-wide management
 **Capabilities**:
+
 - Manage all clients and their users
 - View platform-wide analytics
 - Configure system settings
@@ -13,9 +15,11 @@
 - Access to all data across all clients
 
 ### **2. CLIENT_ADMIN (Client Level)**
+
 **Role**: `client_admin`  
 **Scope**: Company/organization management  
 **Capabilities**:
+
 - Manage users within their company
 - Purchase credits for their organization
 - View company usage analytics
@@ -23,9 +27,11 @@
 - Control user permissions (canPurchaseCredits)
 
 ### **3. USER (API Consumer)**
+
 **Role**: `user`  
 **Scope**: Individual usage  
 **Capabilities**:
+
 - Use API services (consume credits)
 - View their personal usage
 - Generate personal API keys
@@ -37,6 +43,7 @@
 ### **Phase 1: Authentication Flow Testing**
 
 #### **Test 1.1: Registration & Login**
+
 ```bash
 # Test user registration for each role
 1. Register as regular user
@@ -51,6 +58,7 @@
 ```
 
 #### **Test 1.2: Password Management**
+
 ```bash
 1. Password reset flow
 2. Password change in profile
@@ -61,7 +69,9 @@
 ### **Phase 2: User Role Functionality**
 
 #### **Test 2.1: BUSINESS_ADMIN Features**
+
 **Pages to Test**:
+
 - `/admin` - Platform admin dashboard
 - `/admin/clients` - Client management
 - `/admin/users` - All users overview
@@ -69,6 +79,7 @@
 - `/admin/billing` - Platform billing
 
 **Key Functions**:
+
 - [ ] View all clients and their data
 - [ ] Create/edit/disable client accounts
 - [ ] Access any user's information
@@ -76,7 +87,9 @@
 - [ ] System configuration settings
 
 #### **Test 2.2: CLIENT_ADMIN Features**
+
 **Pages to Test**:
+
 - `/dashboard` - Company dashboard
 - `/users` - Team user management
 - `/credits` - Credit management and purchase
@@ -85,6 +98,7 @@
 - `/billing` - Company billing and invoices
 
 **Key Functions**:
+
 - [ ] Manage users in their company only
 - [ ] Purchase credits for the company
 - [ ] Set canPurchaseCredits permissions
@@ -93,13 +107,16 @@
 - [ ] Access billing and invoices
 
 #### **Test 2.3: USER Features**
+
 **Pages to Test**:
+
 - `/dashboard` - Personal dashboard
 - `/profile` - Profile management
 - `/api-keys` - Personal API keys
 - `/usage` - Personal usage tracking
 
 **Key Functions**:
+
 - [ ] View personal usage only
 - [ ] Generate personal API keys
 - [ ] Update profile information
@@ -109,6 +126,7 @@
 ### **Phase 3: Permission Testing**
 
 #### **Test 3.1: Access Control**
+
 ```bash
 # Test unauthorized access attempts
 1. USER trying to access /admin pages → Should redirect/403
@@ -118,6 +136,7 @@
 ```
 
 #### **Test 3.2: Credit Purchase Permissions**
+
 ```bash
 # Test canPurchaseCredits functionality
 1. USER with canPurchaseCredits = false → Purchase buttons disabled
@@ -127,6 +146,7 @@
 ```
 
 #### **Test 3.3: API Key Scope**
+
 ```bash
 # Test API key access levels
 1. Personal API keys → Access only user's data
@@ -137,6 +157,7 @@
 ## 📋 **Testing Checklist**
 
 ### **Authentication Tests**
+
 - [ ] User registration works
 - [ ] Login/logout works
 - [ ] Session persistence
@@ -145,6 +166,7 @@
 - [ ] Account lockout protection
 
 ### **BUSINESS_ADMIN Tests**
+
 - [ ] Can access admin dashboard
 - [ ] Can view all clients
 - [ ] Can manage any user account
@@ -152,6 +174,7 @@
 - [ ] Can configure system settings
 
 ### **CLIENT_ADMIN Tests**
+
 - [ ] Can access company dashboard
 - [ ] Can manage team users only
 - [ ] Can purchase credits
@@ -159,6 +182,7 @@
 - [ ] Cannot see other companies
 
 ### **USER Tests**
+
 - [ ] Can access personal dashboard
 - [ ] Can update profile
 - [ ] Can generate API keys
@@ -166,6 +190,7 @@
 - [ ] Credit purchase based on permissions
 
 ### **Database Tests**
+
 - [ ] User data saves correctly
 - [ ] Role-based queries work
 - [ ] Credit transactions tracked

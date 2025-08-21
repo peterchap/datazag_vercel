@@ -1,7 +1,11 @@
 'use client'
 
+// This page depends (indirectly via Layout/hooks) on authenticated session data at runtime.
+// Disable static prerendering to avoid build-time useSession undefined errors.
+export const dynamic = 'force-dynamic';
+
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useAutoFetch } from "@/hooks/use-auto-fetch";
 import Link from "next/link";
 import Layout from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +20,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -128,37 +131,26 @@ export default function AdminDashboard() {
   const pageSize = 10;
 
   // Fetch overview statistics
-  const { data: stats, isLoading: statsLoading } = useQuery<OverviewStats>({
-    queryKey: ["/api/admin/statistics/overview"],
-    retry: false,
-  });
+  const { data: stats, loading: statsLoading } = useAutoFetch<OverviewStats>(
+    "/api/admin/statistics/overview"
+  );
 
   // Fetch latest transactions
-  const { data: transactionsData, isLoading: transactionsLoading } = useQuery<PaginatedResponse<Transaction>>({
-    queryKey: ["/api/admin/statistics/transactions", transactionsPage],
-    retry: false,
-    queryFn: async () => {
-      const response = await apiRequest("GET", `/api/admin/statistics/transactions?page=${transactionsPage}&limit=${pageSize}`);
-      return response.json();
-    },
-  });
+  const {
+    data: transactionsData,
+    loading: transactionsLoading,
+  } = useAutoFetch<PaginatedResponse<Transaction>>(
+    `/api/admin/statistics/transactions?page=${transactionsPage}&limit=${pageSize}`
+  );
 
   // Fetch API usage data
-  const { data: apiUsageData, isLoading: apiUsageLoading } = useQuery<PaginatedResponse<ApiUsage>>({
-    queryKey: ["/api/admin/statistics/api-usage", apiUsagePage],
-    retry: false,
-    queryFn: async () => {
-      const response = await apiRequest("GET", `/api/admin/statistics/api-usage?page=${apiUsagePage}&limit=${pageSize}`);
-      return response.json();
-    },
-  });
+  const { data: apiUsageData, loading: apiUsageLoading } = useAutoFetch<
+    PaginatedResponse<ApiUsage>
+  >(`/api/admin/statistics/api-usage?page=${apiUsagePage}&limit=${pageSize}`);
   
-  // Fetch pending admin requests
-  const { data: pendingAdminRequests, isLoading: pendingRequestsLoading } = useQuery<any[]>({
-    queryKey: ["/api/admin/requests/pending"],
-    retry: false,
-    refetchInterval: 30000, // Refetch every 30 seconds to get new requests
-  });
+  // Fetch pending admin requests (poll every 30s)
+  const { data: pendingAdminRequests, loading: pendingRequestsLoading } =
+    useAutoFetch<any[]>("/api/admin/requests/pending", { intervalMs: 30000 });
 
   // Handle pagination for transactions
   const handleTransactionsPageChange = (newPage: number) => {

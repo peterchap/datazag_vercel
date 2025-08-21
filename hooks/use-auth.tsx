@@ -1,19 +1,19 @@
-import { 
-  createContext, 
-  useContext, 
-  useState, 
-  useEffect, 
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
   ReactNode,
   useCallback
-} from "react";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import { queryClient } from "@/lib/queryClient";
-import { useRouter } from "next/navigation";
-import { useQuery, useMutation, UseMutationResult } from "@tanstack/react-query";
-import { USER_ROLES } from "@shared/schema";
-// Import API gateway functions
-import { loginViaGateway, registerViaGateway } from "@/lib/api-client";
+} from 'react';
+import { apiRequest } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
+import { queryClient } from '@/lib/queryClient';
+import { useRouter } from 'next/navigation';
+// Removed react-query; using simple async handlers
+import { USER_ROLES } from '@shared/schema';
+import { signIn, signOut, useSession } from 'next-auth/react';
+import { registerViaGateway } from '@/lib/api-client';
 
 interface User {
   id: number;
@@ -53,9 +53,9 @@ interface AuthContextType {
   isBusinessAdmin: boolean;
   isClientAdmin: boolean;
   isRegularUser: boolean;
-  loginMutation: UseMutationResult<User, Error, LoginData>;
-  registerMutation: UseMutationResult<User, Error, RegisterData>;
-  logoutMutation: UseMutationResult<void, Error, void>;
+  loginMutation: any;
+  registerMutation: any;
+  logoutMutation: any;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -80,146 +80,90 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log("Session expired - cleared local storage");
   };
 
-  // Check authentication status with server session
+  // Refresh user data function (declared early so hooks can reference)
+  const refreshUser = useCallback(async (): Promise<void> => {
+    try {
+      const response = await apiRequest('GET', '/api/me');
+      const userData = await response.json();
+      if (userData && userData.id) {
+        setUser(userData);
+        localStorage.setItem('currentUser', JSON.stringify(userData));
+        localStorage.setItem('authTimestamp', Date.now().toString());
+      }
+    } catch (error) {
+      console.error('Failed to refresh user data:', error);
+    }
+  }, []);
+
+  // Leverage NextAuth session; fall back to /api/me for enriched fields like credits
+  // Guard: in some prerender/build contexts useSession may return undefined object; provide fallback
+  const sessionHook = useSession();
+  const status = sessionHook?.status as typeof sessionHook.status | undefined;
+  const session = sessionHook?.data;
+
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        console.log("Checking authentication status...");
-        
-        console.log("Auth check URL:", "/api/me");
-        console.log("API Gateway URL env:", process.env.NEXT_PUBLIC_API_GATEWAY_URL || 'not set');
-        
-        const response = await apiRequest('GET', '/api/me');
-        
-        const userData = await response.json();
-        if (userData && userData.id) {
-          console.log("Server session valid, user:", userData.email);
-          setUser(userData);
-          localStorage.setItem('currentUser', JSON.stringify(userData));
-          localStorage.setItem('authTimestamp', Date.now().toString());
-        } else {
-          console.log("No active server session");
-          setUser(null);
-          localStorage.removeItem('currentUser');
-          localStorage.removeItem('authTimestamp');
-        }
-      } catch (error) {
-        console.error("Auth check failed:", error);
-        // For 401 errors, this is expected when not authenticated
-        if (error instanceof Error && !error.message?.includes('401')) {
-          console.error("Unexpected auth error:", error);
-        }
+    const primeFromSession = async () => {
+      if (status === 'loading') return;
+      if (status === 'unauthenticated') {
         setUser(null);
+        setLoading(false);
         localStorage.removeItem('currentUser');
         localStorage.removeItem('authTimestamp');
+        return;
+      }
+      try {
+        // Fetch /api/me to ensure we have latest credits / role
+        const res = await fetch('/api/me', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          setUser(data);
+          localStorage.setItem('currentUser', JSON.stringify(data));
+          localStorage.setItem('authTimestamp', Date.now().toString());
+        } else {
+          setUser(null);
+        }
+      } catch (e) {
+        console.error('Initial auth sync failed', e);
       } finally {
         setLoading(false);
       }
     };
+    primeFromSession();
+  }, [status]);
 
-    checkAuth();
-
-    // Set up periodic session validation with server (check every 5 minutes)
-    const sessionCheckInterval = setInterval(async () => {
-      try {
-        const response = await fetch('/api/me', {
-          credentials: 'include',
-          headers: { 'Accept': 'application/json' }
-        });
-        
-        if (!response.ok) {
-          console.log("Session expired on server");
-          setUser(null);
-          localStorage.removeItem('currentUser');
-          localStorage.removeItem('authTimestamp');
-          toast({
-            title: "Session Expired",
-            description: "Please log in again to continue",
-            variant: "destructive",
-          });
-          router.push("/auth");
-        }
-      } catch (error) {
-        console.error("Session check failed:", error);
-      }
-    }, 5 * 60 * 1000); // Check every 5 minutes
-
-    return () => clearInterval(sessionCheckInterval);
-  }, [toast, router]);
+  // Periodic refresh of credits (5 min) only if authenticated
+  useEffect(() => {
+    if (!user) return;
+    const id = setInterval(() => refreshUser(), 5 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [user, refreshUser]);
 
   // Login mutation using session-based auth
-  const loginMutation = useMutation<User, Error, LoginData>({
-    mutationFn: async (credentials: LoginData) => {
-      console.log("Attempting login with email:", credentials.email);
-      
-      const apiGatewayUrl = process.env.NEXT_PUBLIC_API_GATEWAY_URL;
-      const loginUrl = apiGatewayUrl ? `${apiGatewayUrl}/api/login` : '/api/login';
-      
-      const response = await fetch(loginUrl, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(credentials)
+  const loginMutation = {
+    mutateAsync: async (credentials: LoginData) => {
+      const res = await signIn('credentials', {
+        redirect: false,
+        email: credentials.email,
+        password: credentials.password,
       });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || 'Login failed');
-      }
-      
-      return await response.json();
-    },
-    onSuccess: (userData) => {
-      console.log("Login successful, user data:", userData);
+      if (res?.error) throw new Error(res.error || 'Login failed');
+      // Re-fetch current user from /api/me
+      const me = await fetch('/api/me');
+      if (!me.ok) throw new Error('Failed to load user after login');
+      const userData = await me.json();
       setUser(userData);
-      queryClient.invalidateQueries({ queryKey: ["/api/me"] });
-      
-      // Store user data and authentication timestamp
       localStorage.setItem('currentUser', JSON.stringify(userData));
       localStorage.setItem('authTimestamp', Date.now().toString());
-      
-      // Navigate based on user role
-      setTimeout(() => {
-        try {
-          const userRole = userData.role ? userData.role.toLowerCase() : '';
-          if (userRole && 
-              (userRole === 'business_admin' || userRole === 'client_admin' || userRole === 'admin')) {
-            router.push("/admin/dashboard");
-          } else {
-            router.push("/dashboard");
-          }
-        } catch (error) {
-          console.error("Role navigation error:", error);
-          router.push("/dashboard"); // Default fallback
-        }
-      }, 200);
-      
-      // Create a friendly display name from first and last name
-      const displayName = userData.firstName && userData.lastName 
-                         ? `${userData.firstName} ${userData.lastName}` 
-                         : userData.email;
-                       
-      toast({
-        title: "Login successful",
-        description: `Welcome back, ${displayName}!`,
-      });
-    },
-    onError: (error) => {
-      console.error("Login error:", error);
-      toast({
-        title: "Login failed",
-        description: error.message || "Please check your credentials and try again.",
-        variant: "destructive",
-      });
+      const userRole = userData.role?.toLowerCase();
+      router.push(userRole && (userRole.includes('admin')) ? '/admin/dashboard' : '/dashboard');
+      toast({ title: 'Login successful', description: `Welcome back, ${userData.firstName || userData.email}!` });
+      return userData;
     }
-  });
+  };
 
   // Register mutation
-  const registerMutation = useMutation<User, Error, RegisterData>({
-    mutationFn: async (userData: RegisterData) => {
+  const registerMutation = {
+    mutateAsync: async (userData: RegisterData) => {
       console.log("Registration attempt with data:", {
         email: userData.email,
         firstName: userData.firstName,
@@ -230,32 +174,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log("Sending POST request to", (process.env.NEXT_PUBLIC_API_GATEWAY_URL || '') + "/api/register");
       
       // Use registerViaGateway to properly route through API Gateway
-      return await registerViaGateway({
+      const result = await registerViaGateway({
         firstName: userData.firstName,
         lastName: userData.lastName,
         email: userData.email,
         password: userData.password,
         company: userData.company
       });
-    },
-    onSuccess: (userData) => {
-      console.log("Registration successful, user data:", userData);
-      setUser(userData);
+  console.log("Registration successful, user data:", result);
+  // Normalize id to number for User type
+  const normalizedUser = { ...result, id: Number(result.id) } as unknown as User;
+  setUser(normalizedUser);
       queryClient.invalidateQueries({ queryKey: ["/api/me"] });
       
       // Store user data and authentication timestamp
-      localStorage.setItem('currentUser', JSON.stringify(userData));
+  localStorage.setItem('currentUser', JSON.stringify(normalizedUser));
       localStorage.setItem('authTimestamp', Date.now().toString());
       
       toast({
         title: "Registration successful",
-        description: `Welcome to Datazag, ${userData.firstName}!`,
+        description: `Welcome to Datazag, ${result.firstName}!`,
       });
       
       // Navigate based on user role
       setTimeout(() => {
         try {
-          const userRole = userData.role ? userData.role.toLowerCase() : '';
+          const userRole = normalizedUser.role ? normalizedUser.role.toLowerCase() : '';
           if (userRole && 
               (userRole === 'business_admin' || userRole === 'client_admin' || userRole === 'admin')) {
             router.push("/admin/dashboard");
@@ -267,74 +211,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           router.push("/dashboard"); // Default fallback
         }
       }, 1000);
-    },
-    onError: (error) => {
-      console.error("Registration error:", error);
-      toast({
-        title: "Registration failed",
-        description: error.message || "Please check your information and try again.",
-        variant: "destructive",
-      });
+      return result;
     }
-  });
+  };
   
   // Logout mutation
-  const logoutMutation = useMutation<void, Error, void>({
-    mutationFn: async () => {
-      const apiGatewayUrl = process.env.NEXT_PUBLIC_API_GATEWAY_URL;
-      const logoutUrl = apiGatewayUrl ? `${apiGatewayUrl}/api/logout` : '/api/logout';
-      
-      const response = await fetch(logoutUrl, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Accept': 'application/json'
-        }
-      });
-      
-      // Clear local storage regardless of response
+  const logoutMutation = {
+    mutateAsync: async () => {
+      await signOut({ redirect: false });
+      // hit compat endpoint (no-op) if legacy callers rely on network success
+      fetch('/api/logout', { method: 'POST' }).catch(() => undefined);
       localStorage.removeItem('currentUser');
       localStorage.removeItem('authTimestamp');
-      
-      if (!response.ok) {
-        console.warn('Logout request failed, but cleared local data');
-      }
-    },
-    onSuccess: () => {
+      // onSuccess actions
       setUser(null);
       queryClient.clear();
-      toast({
-        title: "Logged out",
-        description: "You have been successfully logged out.",
-      });
-      router.push("/login");
-    },
-    onError: (error) => {
-      toast({
-        title: "Logout failed",
-        description: error.message || "Something went wrong.",
-        variant: "destructive",
-      });
+      toast({ title: 'Logged out', description: 'You have been successfully logged out.' });
+      router.push('/login');
     }
-  });
+  };
 
-  // Refresh user data function
-  const refreshUser = useCallback(async (): Promise<void> => {
-    try {
-      console.log("Refreshing user data...");
-      const response = await apiRequest('GET', '/api/me');
-      const userData = await response.json();
-      
-      if (userData && userData.id) {
-        console.log("User data refreshed:", userData.email, "Credits:", userData.credits);
-        setUser(userData);
-        localStorage.setItem('currentUser', JSON.stringify(userData));
-        localStorage.setItem('authTimestamp', Date.now().toString());
-      }
-    } catch (error) {
-      console.error("Failed to refresh user data:", error);
-    }
-  }, []);
 
   // Listen for custom refresh events
   useEffect(() => {
@@ -377,14 +273,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // Role checking helpers - safe access to role property
-  const isAdmin: boolean = !!user && !!user.role && (
-    user.role.toLowerCase() === USER_ROLES.BUSINESS_ADMIN || 
-    user.role.toLowerCase() === USER_ROLES.CLIENT_ADMIN
-  );
-  
-  const isBusinessAdmin: boolean = !!user && !!user.role && user.role.toLowerCase() === USER_ROLES.BUSINESS_ADMIN;
-  const isClientAdmin: boolean = !!user && !!user.role && user.role.toLowerCase() === USER_ROLES.CLIENT_ADMIN;
-  const isRegularUser: boolean = !!user && !!user.role && user.role.toLowerCase() === USER_ROLES.USER;
+  const role = user?.role?.toLowerCase();
+  const isBusinessAdmin = role === USER_ROLES.BUSINESS_ADMIN;
+  const isClientAdmin = role === USER_ROLES.CLIENT_ADMIN;
+  const isRegularUser = role === USER_ROLES.USER;
+  const isAdmin = isBusinessAdmin || isClientAdmin;
 
   // Log current user role info
   if (user) {

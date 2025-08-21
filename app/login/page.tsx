@@ -1,13 +1,17 @@
 'use client';
-import { useState } from 'react';
+
+export const dynamic = 'force-dynamic'; // login page uses auth client hooks
+import { useEffect, useState } from 'react';
 import { signIn } from 'next-auth/react';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { data: session } = useSession();
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -23,7 +27,15 @@ export default function LoginPage() {
       if (res?.error) {
         setError(res.error);
       } else if (res?.ok) {
-        window.location.href = '/'; // Redirect after login
+        // Give next-auth a tick to hydrate session
+        setTimeout(() => {
+          const force = (session as any)?.user?.forcePasswordReset;
+          if (force) {
+            window.location.href = `/reset-password?email=${encodeURIComponent(email)}`;
+          } else {
+            window.location.href = '/';
+          }
+        }, 200);
       }
     } catch (err: any) {
       setError('Login failed');
@@ -68,9 +80,10 @@ export default function LoginPage() {
       </form>
       <div className="mt-6 flex flex-col gap-2">
         <button
-          className="w-full py-2 px-4 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-white dark:border-gray-700 dark:hover:bg-gray-700"
+          className="w-full py-2 px-4 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-white dark:border-gray-700 dark:hover:bg-gray-700 disabled:opacity-50"
           onClick={() => signIn('google', { callbackUrl: '/' })}
-          disabled={loading}
+          disabled={loading || !(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || process.env.OAUTH_GOOGLE_CLIENT_ID)}
+          title={!(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || process.env.OAUTH_GOOGLE_CLIENT_ID) ? 'Google OAuth not configured' : undefined}
         >
           Sign in with Google
         </button>

@@ -1,4 +1,4 @@
-import { QueryClient, QueryFunction } from "@tanstack/react-query";
+// Lightweight API helper. React Query has been removed.
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -7,20 +7,50 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+function getAuthToken(): string | null {
+  try {
+    if (typeof window === 'undefined') return null;
+    // Common places to store JWT
+    const lsKeys = ['token', 'auth_token', 'jwt', 'access_token'];
+    for (const k of lsKeys) {
+      const v = window.localStorage?.getItem?.(k);
+      if (v) return v;
+    }
+    // Try cookie named token
+    const m = document.cookie.match(/(?:^|; )token=([^;]+)/);
+    if (m) return decodeURIComponent(m[1]);
+  } catch {}
+  return null;
+}
+
 export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
   isFormData: boolean = false,
 ): Promise<Response> {
-  // Always use relative URLs for development - never use external domains
-  let fullUrl: string;
-  
-  if (url.startsWith('http')) {
-    fullUrl = url;
-  } else {
-    // Force relative URLs for local development
-    fullUrl = url;
+  // Build full URL against API gateway when a relative path is provided
+  let fullUrl: string = url;
+  const base = (typeof process !== 'undefined' && (process as any).env?.NEXT_PUBLIC_API_GATEWAY_URL) || '';
+  const forceGateway = (typeof process !== 'undefined' && (process as any).env?.NEXT_PUBLIC_FORCE_GATEWAY) === 'true';
+  const isBrowser = typeof window !== 'undefined';
+  const isLocalNextApi = (u: string) => {
+    // Keep these on same-origin to hit Next route handlers, not the gateway directly
+  return /^\/api\/(claim-free-bundle($|\/)|auth(\/|$)|notifications(\/|$)|api-keys(\/|$))/.test(u);
+  };
+  if (!url.startsWith('http')) {
+    // In the browser, always use relative paths to leverage Next rewrites and avoid CORS.
+    // On the server, prefix non-local API routes with the gateway base if provided.
+    if (!isBrowser && base && !isLocalNextApi(url)) {
+      fullUrl = `${base.replace(/\/$/, '')}${url.startsWith('/') ? url : `/${url}`}`;
+    } else {
+      // Optionally allow forcing the gateway absolute URL in the browser for diagnostics/routing control
+      if (isBrowser && base && forceGateway && !isLocalNextApi(url)) {
+        fullUrl = `${base.replace(/\/$/, '')}${url.startsWith('/') ? url : `/${url}`}`;
+      } else {
+        fullUrl = url;
+      }
+    }
   }
   
   console.log(`API Request: ${method} ${fullUrl}`, { 
@@ -41,6 +71,16 @@ export async function apiRequest(
       // Session-based auth - no authorization header needed
     } as HeadersInit
   };
+
+  // Attach Bearer token if available
+  const token = getAuthToken();
+  if (token) {
+    (requestOptions.headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
+  // Also attach token as a cookie for backends that read cookies
+  const existingCookie = (requestOptions.headers as Record<string, string>)["Cookie"];
+  const cookieVal = `token=${encodeURIComponent(token)}`;
+  (requestOptions.headers as Record<string, string>)["Cookie"] = existingCookie ? `${existingCookie}; ${cookieVal}` : cookieVal;
+  }
 
   // Handle different data types
   if (data) {
@@ -64,7 +104,13 @@ export async function apiRequest(
   });
 
   try {
-    const res = await fetch(fullUrl, requestOptions);
+  // Add a default timeout to avoid very long hangs
+  const controller = new AbortController();
+  const timeoutMs = 10000;
+  const to = setTimeout(() => controller.abort(), timeoutMs);
+  (requestOptions as any).signal = controller.signal;
+  const res = await fetch(fullUrl, requestOptions);
+  clearTimeout(to);
     console.log(`Response status: ${res.status} ${res.statusText}`);
     
     if (res.ok) {
@@ -81,90 +127,9 @@ export async function apiRequest(
   }
 }
 
-type UnauthorizedBehavior = "returnNull" | "throw";
-export const getQueryFn = <TData>(options: {
-  on401?: UnauthorizedBehavior;
-  defaultValue?: TData;
-} = {}): QueryFunction<TData> => 
-  async ({ queryKey }) => {
-    console.log(`getQueryFn: Fetching ${queryKey[0]}`);
-    const unauthorizedBehavior = options.on401 || "throw";
-    const defaultValue = options.defaultValue as TData;
-    
-    // Session-based authentication - no localStorage tokens needed
-    console.log("getQueryFn: Using session-based authentication");
-    
-    // Always use relative URLs for development
-    let fullUrl = queryKey[0] as string;
-    
-    const requestOptions: RequestInit = {
-      credentials: "include",
-      headers: {
-        "Accept": "application/json",
-        // Session-based auth - no authorization header needed
-      }
-    };
-    
-    console.log("Query request options:", {
-      credentials: requestOptions.credentials,
-      headers: requestOptions.headers,
-      fullUrl
-    });
-    
-    try {
-      const res = await fetch(fullUrl, requestOptions);
-      console.log(`getQueryFn: Response status: ${res.status} ${res.statusText} for ${queryKey[0]}`);
-
-      if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-        console.log(`getQueryFn: Returning null for 401 response to ${queryKey[0]}`);
-        return defaultValue !== undefined ? defaultValue : null;
-      }
-
-      await throwIfResNotOk(res);
-      // Check if the response is empty to avoid JSON parsing errors
-      const text = await res.text();
-      if (!text || text.trim() === '') {
-        console.log(`getQueryFn: Empty response for ${queryKey[0]}`);
-        return null;
-      }
-      
-      try {
-        const data = JSON.parse(text);
-        console.log(`getQueryFn: Successful response for ${queryKey[0]}`, { dataReceivedLength: JSON.stringify(data).length });
-        
-        // Handle API Gateway response format: { success: true, data: [...] }
-        if (data && typeof data === 'object' && data.success && data.data !== undefined) {
-          console.log(`getQueryFn: Extracting data from API Gateway response format`);
-          return data.data;
-        }
-        
-        return data;
-      } catch (parseError) {
-        console.error(`getQueryFn: JSON parse error for ${queryKey[0]}:`, parseError, 'Response text:', text.substring(0, 100) + '...');
-        // If we can't parse the response as JSON, return null or a default value
-        return defaultValue !== undefined ? defaultValue : null;
-      }
-    } catch (error) {
-      console.error(`getQueryFn: Error fetching ${queryKey[0]}:`, error);
-      if (defaultValue !== undefined) {
-        console.log(`getQueryFn: Returning default value for ${queryKey[0]}`);
-        return defaultValue;
-      }
-      throw error;
-    }
-  };
-
-export const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      queryFn: getQueryFn({ on401: "throw" }),
-      refetchInterval: false,
-      refetchOnWindowFocus: false,
-      staleTime: Infinity,
-      retry: false,
-    },
-    mutations: {
-      retry: false,
-    },
-  },
-});
+// Minimal no-op queryClient to preserve compatibility during migration away from react-query
+export const queryClient = {
+  invalidateQueries: async (_opts?: any) => {},
+  refetchQueries: async (_opts?: any) => {},
+  clear: () => {},
+};

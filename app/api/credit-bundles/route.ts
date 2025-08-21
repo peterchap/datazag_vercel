@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/server/db';
+import { db } from '@/lib/drizzle';
 import { creditBundles } from '@/shared/schema';
 
 export async function GET(request: NextRequest) {

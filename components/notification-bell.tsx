@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Bell } from '@/lib/icons';
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { apiRequest, getQueryFn, queryClient } from '@/lib/queryClient';
+import { apiRequest } from '@/lib/queryClient';
+import { useAutoFetch } from '@/hooks/use-auto-fetch';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import {
@@ -28,58 +28,51 @@ export default function NotificationBell() {
   const { toast } = useToast();
   
   // Fetch notifications
-  const { 
-    data: notifications = [], 
-    isLoading,
-    refetch
-  } = useQuery<Notification[]>({
-    queryKey: ['/api/notifications'],
-    queryFn: getQueryFn({ defaultValue: [] }),
-    staleTime: 1000 * 60, // 1 minute
-    refetchInterval: 1000 * 60, // Refetch every minute
-  });
+  const { data: notifications = [], loading: isLoading, refetch } = useAutoFetch<Notification[]>(
+    '/api/notifications',
+    { intervalMs: 60_000, initialData: [] }
+  );
   
   // Mark notification as read
-  const markAsReadMutation = useMutation({
-    mutationFn: async (id: number) => {
+  async function markAsRead(id: number) {
+    try {
       const response = await apiRequest('POST', `/api/notifications/${id}/read`);
-      return response.json();
-    },
-    onSuccess: () => {
-      // Invalidate the notifications cache to refetch
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
-    },
-    onError: (error: Error) => {
+      if (!response.ok) throw new Error('Failed to mark as read');
+      await response.json();
+      await refetch();
+    } catch (error: any) {
       toast({
         title: "Failed to mark notification as read",
-        description: error.message,
+        description: error?.message || 'Unknown error',
         variant: "destructive",
       });
     }
-  });
+  }
   
   // Mark all notifications as read
-  const markAllAsReadMutation = useMutation({
-    mutationFn: async () => {
+  const [isMarkingAll, setIsMarkingAll] = useState(false);
+  async function markAllAsRead() {
+    try {
+      setIsMarkingAll(true);
       const response = await apiRequest('POST', '/api/notifications/mark-all-read');
-      return response.json();
-    },
-    onSuccess: () => {
-      // Invalidate the notifications cache to refetch
-      queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });
+      if (!response.ok) throw new Error('Failed to mark all as read');
+      await response.json();
+      await refetch();
       toast({
         title: "Notifications cleared",
         description: "All notifications have been marked as read",
       });
+    } finally {
+      setIsMarkingAll(false);
     }
-  });
+  }
   
   // Count unread notifications
   const unreadCount = Array.isArray(notifications) ? notifications.filter((n: Notification) => !n.read).length : 0;
   
   // Handle notification click
   const handleNotificationClick = (notification: Notification) => {
-    markAsReadMutation.mutate(notification.id);
+  void markAsRead(notification.id);
     
     // Navigate to the link if provided
     if (notification.link) {
@@ -108,9 +101,9 @@ export default function NotificationBell() {
             <h3 className="text-sm font-semibold">Notifications</h3>
             {unreadCount > 0 && (
               <button
-                onClick={() => markAllAsReadMutation.mutate()}
+                onClick={() => markAllAsRead()}
                 className="text-xs text-primary-600 hover:text-primary-800"
-                disabled={markAllAsReadMutation.isPending}
+                disabled={isMarkingAll}
               >
                 Mark all as read
               </button>

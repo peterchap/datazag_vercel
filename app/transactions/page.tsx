@@ -1,11 +1,13 @@
 'use client'
 
+export const dynamic = 'force-dynamic'; // session-dependent transactions page
+
 import { useState } from "react";
 import Layout from "@/components/layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useQuery } from "@tanstack/react-query";
+import { useAutoFetch } from "@/hooks/use-auto-fetch";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from "recharts";
 import { Loader2 } from "lucide-react";
@@ -43,16 +45,16 @@ export default function TransactionsPage() {
   const [selectedTab, setSelectedTab] = useState("history");
   
   // Fetch transactions with auto-refresh
-  const { data: transactions = [], isLoading: isLoadingTransactions } = useQuery<Transaction[]>({
-    queryKey: ["/api/transactions"],
-    refetchInterval: 10000, // Refresh every 10 seconds
-  });
+  const { data: transactions = [], loading: isLoadingTransactions } = useAutoFetch<Transaction[]>(
+    "/api/transactions",
+    { intervalMs: 10000 }
+  );
   
   // Fetch API usage data with auto-refresh
-  const { data: apiUsage = [], isLoading: isLoadingApiUsage } = useQuery<ApiUsage[]>({
-    queryKey: ["/api/api-usage"],
-    refetchInterval: 10000, // Refresh every 10 seconds
-  });
+  const { data: apiUsage = [], loading: isLoadingApiUsage } = useAutoFetch<ApiUsage[]>(
+    "/api/api-usage",
+    { intervalMs: 10000 }
+  );
   
   // Process data for charts
   const last30Days = [...Array(30)].map((_, i) => {

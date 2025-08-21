@@ -7,7 +7,7 @@
 
 const axios = require('axios');
 
-const BIGQUERY_API_URL = process.env.BIGQUERY_API_URL || 'https://api.datazag.com';
+const BIGQUERY_API_URL = process.env.BIGQUERY_API_URL || '';
 const INTERNAL_API_TOKEN = process.env.INTERNAL_API_TOKEN;
 
 if (!INTERNAL_API_TOKEN) {
@@ -18,6 +18,10 @@ class RedisSyncService {
   async makeRequest(method, endpoint, data = null) {
     if (!INTERNAL_API_TOKEN) {
       console.warn('Redis sync skipped - INTERNAL_API_TOKEN not configured');
+      return { success: false, statusCode: 503, message: 'Redis sync not configured' };
+    }
+    if (!BIGQUERY_API_URL) {
+      console.warn('Redis sync skipped - BIGQUERY_API_URL not configured');
       return { success: false, statusCode: 503, message: 'Redis sync not configured' };
     }
 
@@ -40,9 +44,18 @@ class RedisSyncService {
         data: response.data.data
       };
     } catch (error) {
-      console.error(`Redis sync error (${method} ${endpoint}):`, error.message);
+      // Downgrade to warn to avoid noisy logs during local/dev without Redis API
+      console.warn(`Redis sync error (${method} ${endpoint}):`, error.message);
       
       if (error.response) {
+        if (error.response.status === 404) {
+          // Endpoint not implemented on the target service; treat as non-fatal
+          return {
+            success: false,
+            statusCode: 404,
+            message: 'Redis sync endpoint not available'
+          };
+        }
         // Server responded with error status
         return {
           success: false,
@@ -105,6 +118,15 @@ class RedisSyncService {
    */
   async updateCredits(userId, credits) {
     return this.makeRequest('PATCH', `/redis/credits/${userId}`, {
+      credits
+    });
+  }
+
+  /**
+   * Update credits by API key in Redis (alternate API shape used by bg_public_api)
+   */
+  async updateCreditsByApiKey(apiKey, credits) {
+    return this.makeRequest('PATCH', `/redis/credits/${encodeURIComponent(apiKey)}`, {
       credits
     });
   }

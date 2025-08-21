@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic';
+
 import Layout from "@/components/layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,7 +26,8 @@ const createApiKeySchema = z.object({
 type CreateApiKeyFormValues = z.infer<typeof createApiKeySchema>;
 
 export default function ApiKeys() {
-  const { apiKeys, createApiKey, deleteApiKey, showNewKey, setShowNewKey } = useApiKeys();
+  const { apiKeys, createApiKey, deleteApiKey, showNewKey, setShowNewKey, isCreating, isDeleting } = useApiKeys();
+  const safeApiKeys = Array.isArray(apiKeys) ? apiKeys : [];
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const { toast } = useToast();
 
@@ -37,7 +40,7 @@ export default function ApiKeys() {
 
   const onSubmit = async (data: CreateApiKeyFormValues) => {
     try {
-      await createApiKey.mutateAsync(data);
+      await createApiKey(data);
       setIsCreateDialogOpen(false);
       form.reset();
       toast({
@@ -63,7 +66,7 @@ export default function ApiKeys() {
 
   const handleDeleteKey = async (keyId: number) => {
     try {
-      await deleteApiKey.mutateAsync(keyId);
+      await deleteApiKey(keyId);
       toast({
         title: "API key deleted",
         description: "API key has been deleted successfully.",
@@ -134,8 +137,8 @@ export default function ApiKeys() {
                   )}
                 />
                 <DialogFooter>
-                  <Button type="submit" disabled={createApiKey.isPending}>
-                    {createApiKey.isPending ? "Creating..." : "Create API Key"}
+                  <Button type="submit" disabled={isCreating}>
+                    {isCreating ? "Creating..." : "Create API Key"}
                   </Button>
                 </DialogFooter>
               </form>
@@ -153,7 +156,7 @@ export default function ApiKeys() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {apiKeys && apiKeys.length > 0 ? (
+          {safeApiKeys.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -165,7 +168,7 @@ export default function ApiKeys() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {apiKeys.map((apiKey) => (
+                {safeApiKeys.map((apiKey) => (
                   <TableRow key={apiKey.id}>
                     <TableCell className="font-medium">{apiKey.name}</TableCell>
                     <TableCell>
@@ -201,7 +204,7 @@ export default function ApiKeys() {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDeleteKey(apiKey.id)}
-                        disabled={deleteApiKey.isPending}
+                        disabled={isDeleting}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

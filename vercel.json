@@ -7,6 +7,10 @@
   },
   "rewrites": [
     {
+      "source": "/api/register",
+      "destination": "/api/auth/signup"
+    },
+    {
       "source": "/apipg/:path*",
       "destination": "https://apipg.datazag.com/:path*"
     }

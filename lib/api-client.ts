@@ -337,36 +337,48 @@ export async function registerViaGateway(userData: {
   password: string;
   company?: string;
 }) {
-  console.log("registerViaGateway called with:", { email: userData.email, company: userData.company });
-  console.log("API Gateway URL:", process.env.NEXT_PUBLIC_API_GATEWAY_URL);
-  console.log("All env vars:", process.env);
-  
-  // Use local server instead of external API Gateway to avoid CORS
-  const baseUrl = '';
-  const fullUrl = `${baseUrl}/api/register`;
-  
-  console.log("Making request to:", fullUrl);
-  
-  try {
-    const response = await fetch(fullUrl, {
+  // Use same-origin API by default; avoid forcing CORS mode on same origin
+  const tryRegister = async (path: string) => {
+    const res = await fetch(path, {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json'
       },
       credentials: 'include',
-      mode: 'cors',
       body: JSON.stringify(userData)
     });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Registration failed: ${response.status} ${errorText}`);
-    }
-    
-    return await response.json();
-  } catch (error) {
-    console.error("Registration error:", error);
-    throw error;
+    return res;
+  };
+
+  // Prefer the stable signup route first; fall back to /api/register
+  let response = await tryRegister('/api/auth/signup');
+  if (response.status === 404 || response.status === 405) {
+    response = await tryRegister('/api/register');
   }
+
+  // Bubble up any remaining error with details
+  if (!response.ok) {
+    let details = '';
+    try { details = await response.text(); } catch { /* ignore */ }
+    throw new Error(`Registration failed: ${response.status}${details ? ' ' + details : ''}`);
+  }
+
+  // Normalize user shape regardless of which endpoint handled the request
+  const payload = await response.json();
+  let user: any = payload;
+  if (payload && payload.user) user = payload.user;
+
+  // Map snake_case fields if present
+  const normalized = {
+    id: String(user.id ?? user.user_id ?? ''),
+    email: user.email ?? '',
+    firstName: user.firstName ?? user.first_name ?? '',
+    lastName: user.lastName ?? user.last_name ?? '',
+    company: user.company ?? '',
+    role: user.role ?? 'USER',
+    credits: user.credits ?? 0,
+  };
+
+  return normalized;
 }

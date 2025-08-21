@@ -21,9 +21,9 @@ export async function GET(request: NextRequest) {
       `
       SELECT 
         id,
-        api_key AS key,
-        key_name AS name,
-        is_active AS active,
+        key AS key,
+        name AS name,
+        active AS active,
         created_at
       FROM api_keys
       WHERE user_id = $1
@@ -68,9 +68,9 @@ export async function POST(request: NextRequest) {
     const inserted = await client.query(
       `
       INSERT INTO api_keys (
-        user_id, api_key, key_name, is_active, created_at, updated_at
-      ) VALUES ($1, $2, $3, true, NOW(), NOW())
-      RETURNING id, api_key AS key, key_name AS name, is_active AS active, created_at
+        user_id, key, name, active, created_at
+      ) VALUES ($1, $2, $3, true, NOW())
+      RETURNING id, key AS key, name AS name, active AS active, created_at
       `,
       [String(user.id), apiKey, name]
     );

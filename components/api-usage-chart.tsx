@@ -10,7 +10,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import { useQuery } from "@tanstack/react-query";
+import { useAutoFetch } from "@/hooks/use-auto-fetch";
 
 interface ApiUsageChartProps {
   className?: string;
@@ -22,46 +22,30 @@ interface ChartData {
 }
 
 export default function ApiUsageChart({ className }: ApiUsageChartProps) {
-  // Get API usage data from server
-  const { data: apiUsage = [] } = useQuery<any[]>({
-    queryKey: ["/api/api-usage"],
-    select: (data) => {
-      // Safely handle null/undefined data
-      if (!Array.isArray(data)) return [];
-      
-      // Group by day and count
-      const grouped = data.reduce((acc: { [key: string]: number }, item) => {
-        const date = new Date(item.createdAt).toLocaleDateString();
-        acc[date] = (acc[date] || 0) + 1;
-        return acc;
-      }, {});
-      
-      // Get last 7 days
-      const today = new Date();
-      const last7Days: ChartData[] = [];
-      
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date(today);
-        date.setDate(date.getDate() - i);
-        const dateStr = date.toLocaleDateString();
-        const day = date.toLocaleDateString('en-US', { weekday: 'short' });
-        
-        last7Days.push({
-          name: day,
-          requests: grouped[dateStr] || 0
-        });
-      }
-      
-      return last7Days;
-    }
-  });
+  // Get API usage data and transform for chart
+  const { data: rawUsage } = useAutoFetch<any[]>("/api/api-usage", { intervalMs: 60000, initialData: [] });
+
+  const dataArray = Array.isArray(rawUsage) ? rawUsage : [];
+  const grouped = dataArray.reduce((acc: { [key: string]: number }, item) => {
+    const date = new Date(item.createdAt).toLocaleDateString();
+    acc[date] = (acc[date] || 0) + 1;
+    return acc;
+  }, {});
+
+  const today = new Date();
+  const apiUsage: ChartData[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
+    const dateStr = date.toLocaleDateString();
+    const day = date.toLocaleDateString('en-US', { weekday: 'short' });
+    apiUsage.push({ name: day, requests: grouped[dateStr] || 0 });
+  }
   
   // Calculate statistics
   const successRate = 99.8; // Would come from real data
   const avgResponse = 142; // Would come from real data
-  const totalQueries = apiUsage 
-    ? apiUsage.reduce((sum, item) => sum + item.requests, 0) 
-    : 0;
+  const totalQueries = apiUsage.reduce((sum, item) => sum + item.requests, 0);
   
   return (
     <Card className={className}>

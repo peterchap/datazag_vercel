@@ -65,6 +65,7 @@ export const creditBundles = pgTable("credit_bundles", {
   description: text("description").notNull(),
   credits: integer("credits").notNull(),
   price: integer("price").notNull(), // in cents
+  currency: text("currency").default('usd'),
   popular: boolean("popular").default(false),
 });
 

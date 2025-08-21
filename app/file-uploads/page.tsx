@@ -1,6 +1,8 @@
 'use client'
 
-import { useState, useRef } from "react";
+export const dynamic = 'force-dynamic'; // file uploads use client/session state
+
+import { useState, useRef, useEffect } from "react";
 import Layout from "@/components/layout";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+// removed react-query; using local state and events instead
 import { FileIcon, UploadIcon, DownloadIcon, XIcon, Loader2 } from "lucide-react";
 import { useCurrency } from "@/components/currency-selector";
 
@@ -39,7 +41,8 @@ export default function FileUploads() {
   const multipleFileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<unknown>(null);
   const { formatPrice } = useCurrency();
 
   // File uploads are now free - no credit costs
@@ -131,8 +134,7 @@ export default function FileUploads() {
         const data = await uploadPromise;
         
         // Invalidate queries that might be affected by credit change
-        queryClient.invalidateQueries({ queryKey: ["/api/me"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+  window.dispatchEvent(new CustomEvent('refreshUserData'));
         
         toast({
           title: "Upload successful",
@@ -166,8 +168,7 @@ export default function FileUploads() {
           const data = await response.json();
           
           // Invalidate queries that might be affected by credit change
-          queryClient.invalidateQueries({ queryKey: ["/api/me"] });
-          queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+          window.dispatchEvent(new CustomEvent('refreshUserData'));
           
           toast({
             title: "Upload successful",

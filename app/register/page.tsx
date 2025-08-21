@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -109,8 +111,10 @@ export default function Register() {
     }
   };
 
-  const handleOAuthRegister = (provider: 'google' | 'github' | 'microsoft' | 'linkedin') => {
-    window.location.href = `/auth/${provider}`;
+  // Use NextAuth signIn for OAuth providers instead of legacy /auth/* routes
+  const handleOAuthRegister = async (provider: 'google' | 'github') => {
+    const { signIn } = await import('next-auth/react');
+    await signIn(provider, { callbackUrl: '/' });
   };
 
   if (registrationSuccess) {

@@ -314,7 +314,8 @@ class ApiGatewayClient extends BaseApiClient {
     password: string;
     company?: string;
   }) {
-    return this.post('/api/register', userData);
+  // Prefer the signup endpoint which is present across deployments
+  return this.post('/api/auth/signup', userData);
   }
 }
 

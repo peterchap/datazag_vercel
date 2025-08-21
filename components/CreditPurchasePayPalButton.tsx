@@ -74,6 +74,21 @@ export default function CreditPurchasePayPalButton({
       (window as any).paypalCreateOrder = originalCreateOrder;
     };
   }, [bundleId, discountCode, currency, toast, onError]);
+
+  // Monkey patch the PayPal onApprove handler to emit a success event our component listens for
+  useEffect(() => {
+    const originalOnApprove = (window as any).paypalOnApprove;
+    (window as any).paypalOnApprove = async (data: any) => {
+      if (typeof originalOnApprove === 'function') {
+        try { await originalOnApprove(data); } catch (_) {}
+      }
+      // Dispatch event for listeners in this component to update credits/transactions
+      window.dispatchEvent(new CustomEvent('paypal:payment:success', { detail: data }));
+    };
+    return () => {
+      (window as any).paypalOnApprove = originalOnApprove;
+    };
+  }, []);
   
   // Handle successful payments
   useEffect(() => {

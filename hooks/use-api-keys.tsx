@@ -1,8 +1,6 @@
-import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient } from "@/lib/queryClient";
 
 interface ApiKey {
   id: number;
@@ -16,81 +14,83 @@ interface ApiKey {
 export function useApiKeys() {
   const { toast } = useToast();
   const [showNewKey, setShowNewKey] = useState<ApiKey | null>(null);
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<unknown>(null);
+  const [isCreating, setIsCreating] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
   
-  const {
-    data,
-    isLoading,
-    error,
-  } = useQuery<{ success: boolean; keys: ApiKey[] }>({
-    queryKey: ["/api/api-keys"],
-  });
-  
-  const apiKeys = data?.keys ?? [];
-  const activeApiKeys = apiKeys;
+  const loadKeys = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await apiRequest("GET", "/api/api-keys");
+      const json = await res.json();
+      setApiKeys(json?.keys ?? []);
+    } catch (e) {
+      setError(e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const createApiKeyMutation = useMutation({
-    mutationFn: async (data: { name: string }) => {
-      try {
-        const res = await apiRequest("POST", "/api/api-keys", data);
-        if (!res.ok) throw new Error(`Error: ${res.status}: ${await res.text()}`);
-        const result = await res.json();
-        return result?.key;
-      } catch (error) {
-        console.error("Fetch error during API key creation:", error);
-        throw error;
-      }
-    },
-    onSuccess: (newKey) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/api-keys"] });
-      setShowNewKey(newKey);
+  useEffect(() => {
+    loadKeys();
+  }, []);
+
+  const createApiKey = async (data: { name: string }) => {
+    setIsCreating(true);
+    try {
+      const res = await apiRequest("POST", "/api/api-keys", data);
+      if (!res.ok) throw new Error(`Error: ${res.status}: ${await res.text()}`);
+      const result = await res.json();
+      setShowNewKey(result?.key);
       toast({
         title: "API Key Created",
-        description:
-          "Your new API key has been created. Make sure to copy it now, you won't be able to see it again.",
+        description: "Your new API key has been created. Copy it now; it won't be shown again.",
       });
-    },
-    onError: (error: any) => {
+      await loadKeys();
+    } catch (error: any) {
       toast({
         title: "Error Creating API Key",
-        description:
-          error?.message || "An error occurred while creating your API key.",
+        description: error?.message || "An error occurred while creating your API key.",
         variant: "destructive",
       });
-    },
-  });
+      throw error;
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
-  const deleteApiKeyMutation = useMutation({
-    mutationFn: async (id: number) => {
+  const deleteApiKey = async (id: number) => {
+    setIsDeleting(true);
+    try {
       const res = await apiRequest("DELETE", `/api/api-keys/${id}`);
       if (!res.ok) throw new Error(`Error: ${res.status}: ${await res.text()}`);
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/api-keys"] });
-      toast({
-        title: "API Key Deleted",
-        description: "Your API key has been permanently deleted.",
-      });
-    },
-    onError: (error: any) => {
+      await res.json();
+      toast({ title: "API Key Deleted", description: "Your API key has been permanently deleted." });
+      await loadKeys();
+    } catch (error: any) {
       toast({
         title: "Error Deleting API Key",
-        description:
-          error?.message || "An error occurred while deleting your API key.",
+        description: error?.message || "An error occurred while deleting your API key.",
         variant: "destructive",
       });
-    },
-  });
+      throw error;
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return {
-    apiKeys,
-    activeApiKeys,
-    isLoading,
-    error,
-    createApiKey: createApiKeyMutation,
-    deleteApiKey: deleteApiKeyMutation,
-    isCreating: createApiKeyMutation.isPending,
-    isDeleting: deleteApiKeyMutation.isPending,
+  apiKeys,
+  activeApiKeys: apiKeys,
+  isLoading,
+  error,
+  createApiKey,
+  deleteApiKey,
+  isCreating,
+  isDeleting,
     showNewKey,
     setShowNewKey,
   };

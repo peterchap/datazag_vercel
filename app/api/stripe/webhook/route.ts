@@ -1,17 +1,20 @@
-import { headers } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
-import { pool } from '@/lib/db';
+import { pool } from '@/lib/drizzle';
 
 export const dynamic = 'force-dynamic'; // ensure no caching
 
 export async function POST(req: NextRequest) {
-  const sig = headers().get('stripe-signature');
+  // Use the request's own headers to avoid async headers() helper typing (Promise) in Next 15.
+  const sig = req.headers.get('stripe-signature');
+  if (!sig) {
+    return NextResponse.json({ error: 'Missing stripe-signature header' }, { status: 400 });
+  }
   const buf = await req.text();
 
   let event;
   try {
-    event = stripe.webhooks.constructEvent(buf, sig!, process.env.STRIPE_WEBHOOK_SECRET!);
+  event = stripe.webhooks.constructEvent(buf, sig, process.env.STRIPE_WEBHOOK_SECRET!);
   } catch (err: any) {
     console.error('Webhook signature verification failed', err?.message);
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });

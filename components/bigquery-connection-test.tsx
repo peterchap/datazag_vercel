@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Loader2, CheckCircle2, XCircle, AlertTriangle, Database } from '@/lib/icons';
 import { useToast } from '@/hooks/use-toast';
+import { useAutoFetch } from '@/hooks/use-auto-fetch';
 
 interface BigQueryConnectionTestProps {
   className?: string;
@@ -15,15 +15,15 @@ export default function BigQueryConnectionTest({ className }: BigQueryConnection
   const [testTriggered, setTestTriggered] = useState(false);
   const { toast } = useToast();
   
-  const { data, isLoading, error, refetch } = useQuery<any>({
-    queryKey: ['/api/bigquery/test-connection'],
-    enabled: testTriggered,
-  });
+  const { data, loading: isLoading, error, refetch } = useAutoFetch<any>(
+    '/api/bigquery/test-connection',
+    { enabled: testTriggered }
+  );
   
   const handleTestConnection = () => {
     setTestTriggered(true);
-    refetch().then((result) => {
-      if (result.data?.success) {
+    refetch().then(() => {
+      if ((data as any)?.success) {
         toast({
           title: "Connection Successful",
           description: "Successfully connected to API analytics service",

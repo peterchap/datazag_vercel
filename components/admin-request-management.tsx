@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useState } from "react";
 import { apiRequest } from "@/lib/queryClient";
+import { useAutoFetch } from "@/hooks/use-auto-fetch";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -48,92 +48,60 @@ export default function AdminRequestManagement() {
   const [notes, setNotes] = useState("");
   const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
   
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   // Fetch pending admin requests
-  const { 
-    data: pendingRequests, 
-    isLoading: isLoadingRequests,
-    error: requestsError 
-  } = useQuery({
-    queryKey: ["/api/admin/admin-requests"],
-    queryFn: async () => {
-      const res = await fetch("/api/admin/admin-requests", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      });
-      
-      if (!res.ok) {
-        throw new Error("Failed to fetch admin requests");
-      }
-      
-      return res.json() as Promise<AdminRequest[]>;
-    }
-  });
+  const {
+    data: pendingRequests = [],
+    loading: isLoadingRequests,
+    error: requestsError,
+    refetch,
+  } = useAutoFetch<AdminRequest[]>("/api/admin/admin-requests", { initialData: [] });
 
-  // Mutation for updating admin request status
-  const updateRequestMutation = useMutation({
-    mutationFn: async ({ 
-      id, 
-      status, 
-      notes 
-    }: { 
-      id: number; 
-      status: string; 
-      notes?: string; 
-    }) => {
-      const res = await apiRequest("PATCH", `/api/admin/admin-requests/${id}`, { status, notes });
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || "Failed to update admin request");
+  // Update request helper
+  const updateRequest = useCallback(
+    async ({ id, status, notes }: { id: number; status: string; notes?: string }) => {
+      try {
+        setIsUpdating(true);
+        const res = await apiRequest("PATCH", `/api/admin/admin-requests/${id}`, { status, notes });
+        const body = await res.json();
+        toast({
+          title: "Request Updated",
+          description: "The admin request has been updated successfully.",
+          variant: "default",
+        });
+        setNotes("");
+        setSelectedRequest(null);
+        setIsApproveDialogOpen(false);
+        setIsRejectDialogOpen(false);
+        await refetch();
+        return body;
+      } catch (e: any) {
+        toast({
+          title: "Update Failed",
+          description: e?.message || "Failed to update admin request",
+          variant: "destructive",
+        });
+        throw e;
+      } finally {
+        setIsUpdating(false);
       }
-      return await res.json();
     },
-    onSuccess: () => {
-      toast({
-        title: "Request Updated",
-        description: "The admin request has been updated successfully.",
-        variant: "default",
-      });
-      setNotes("");
-      setSelectedRequest(null);
-      setIsApproveDialogOpen(false);
-      setIsRejectDialogOpen(false);
-      // Invalidate queries to refresh the requests list
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/admin-requests"] });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Update Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
+    [refetch, toast]
+  );
 
   // Handle approval
   const handleApprove = () => {
     if (!selectedRequest) return;
-    updateRequestMutation.mutate({
-      id: selectedRequest.id,
-      status: "approved",
-      notes: notes || undefined,
-    });
+  updateRequest({ id: selectedRequest.id, status: "approved", notes: notes || undefined });
   };
 
   // Handle rejection
   const handleReject = () => {
     if (!selectedRequest) return;
-    updateRequestMutation.mutate({
-      id: selectedRequest.id,
-      status: "rejected",
-      notes: notes || undefined,
-    });
+  updateRequest({ id: selectedRequest.id, status: "rejected", notes: notes || undefined });
   };
 
   if (isLoadingRequests) {
@@ -280,9 +248,9 @@ export default function AdminRequestManagement() {
                 variant="default"
                 className="bg-green-600 hover:bg-green-700"
                 onClick={handleApprove}
-                disabled={updateRequestMutation.isPending}
+                disabled={isUpdating}
               >
-                {updateRequestMutation.isPending ? (
+                {isUpdating ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Processing...
@@ -342,9 +310,9 @@ export default function AdminRequestManagement() {
                 variant="default"
                 className="bg-red-600 hover:bg-red-700"
                 onClick={handleReject}
-                disabled={updateRequestMutation.isPending}
+                disabled={isUpdating}
               >
-                {updateRequestMutation.isPending ? (
+                {isUpdating ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Processing...

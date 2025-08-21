@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useAutoFetch } from "@/hooks/use-auto-fetch";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,60 +24,39 @@ interface AdminRequest {
 export default function AdminRequestForm() {
   const [reason, setReason] = useState("");
   const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch existing admin requests for the user
-  const { 
-    data: adminRequests, 
-    isLoading: isLoadingRequests,
-    error: requestsError 
-  } = useQuery({
-    queryKey: ["/api/admin-requests"],
-    queryFn: async () => {
-      const res = await fetch("/api/admin-requests", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      });
-      
-      if (!res.ok) {
-        throw new Error("Failed to fetch admin requests");
-      }
-      
-      return res.json() as Promise<AdminRequest[]>;
-    }
-  });
+  const {
+    data: adminRequests = [],
+    loading: isLoadingRequests,
+    error: requestsError,
+    refetch,
+  } = useAutoFetch<AdminRequest[]>("/api/admin-requests", { initialData: [] });
 
   // Mutation for creating a new admin request
-  const createRequestMutation = useMutation({
-    mutationFn: async (data: { reason: string }) => {
+  const submitRequest = async (data: { reason: string }) => {
+    try {
+      setIsSubmitting(true);
       const res = await apiRequest("POST", "/api/admin-requests", data);
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || "Failed to submit admin request");
-      }
-      return await res.json();
-    },
-    onSuccess: () => {
+      await res.json();
       toast({
         title: "Request Submitted",
         description: "Your admin access request has been submitted successfully.",
         variant: "default",
       });
       setReason("");
-      // Invalidate the query to refresh the requests list
-      queryClient.invalidateQueries({ queryKey: ["/api/admin-requests"] });
-    },
-    onError: (error: Error) => {
+      await refetch();
+    } catch (e: any) {
       toast({
         title: "Submission Failed",
-        description: error.message,
+        description: e?.message || "Failed to submit admin request",
         variant: "destructive",
       });
-    },
-  });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // Handle form submission
   const handleSubmit = (e: React.FormEvent) => {
@@ -90,7 +69,7 @@ export default function AdminRequestForm() {
       });
       return;
     }
-    createRequestMutation.mutate({ reason });
+  submitRequest({ reason });
   };
 
   // Check if user has a pending request
@@ -221,9 +200,9 @@ export default function AdminRequestForm() {
           <Button 
             type="submit" 
             onClick={handleSubmit}
-            disabled={createRequestMutation.isPending || !reason.trim()}
+            disabled={isSubmitting || !reason.trim()}
           >
-            {createRequestMutation.isPending ? (
+            {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Submitting...

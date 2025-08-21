@@ -1,8 +1,10 @@
 'use client'
 
-import { useState } from "react";
+export const dynamic = 'force-dynamic';
+
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAutoFetch } from "@/hooks/use-auto-fetch";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -49,7 +51,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { Edit, MoreVertical, Plus, Trash2, Key, CreditCard, Activity } from "lucide-react";
+import { Edit, MoreVertical, Plus, Trash2, Key, CreditCard, Activity, Lock } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -61,17 +63,24 @@ import {
 // Define the User type from the API
 type User = {
   id: number;
-  username: string;
+  // Display fields
+  firstName?: string | null;
+  lastName?: string | null;
+  username?: string | null;
   email: string;
-  company?: string;
-  credits: number;
-  stripeCustomerId?: string;
+  company?: string | null;
   role: string;
-  parentUserId?: number;
+  credits: number;
   canPurchaseCredits: boolean;
+  // Optional metadata for details
+  stripeCustomerId?: string | null;
+  parentUserId?: number | null;
   creditThreshold?: number | null;
-  gracePeriodEnd?: Date | null;
-  createdAt: string;
+  gracePeriodEnd?: string | null;
+  lastLogin?: string | null;
+  active?: boolean;
+  emailVerified?: boolean;
+  twoFactorEnabled?: boolean;
 };
 
 // Import USER_ROLES from schema
@@ -93,69 +102,41 @@ type EditUserFormValues = z.infer<typeof editUserSchema>;
 
 export default function AdminUsers() {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const router = useRouter();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+  const [sortKey, setSortKey] = useState<"name" | "company" | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
-  // Fetch users
-  const { data: users = [], isLoading } = useQuery<User[]>({
-    queryKey: ["/api/admin/users"],
-    retry: false,
-  });
+  // Fetch users (poll every 30s)
+  const { data: users = [], loading: isLoading, refetch: refetchUsers } =
+    useAutoFetch<User[]>("/api/admin/users", { intervalMs: 30000 });
 
-  // Update user mutation
-  const updateUser = useMutation({
-    mutationFn: async ({
-      id,
-      data,
-    }: {
-      id: number;
-      data: EditUserFormValues;
-    }) => {
-      const response = await apiRequest("PATCH", `/api/admin/users/${id}`, data);
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "User updated",
-        description: "The user has been updated successfully",
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
-      setIsEditModalOpen(false);
-      setSelectedUser(null);
-      form.reset();
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error updating user",
-        description: error.message || "Something went wrong",
-        variant: "destructive",
-      });
-    },
-  });
+  const toggleSort = (key: "name" | "company") => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
 
-  // Delete user mutation
-  const deleteUser = useMutation({
-    mutationFn: async (id: number) => {
-      const response = await apiRequest("DELETE", `/api/admin/users/${id}`);
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "User deleted",
-        description: "The user has been deleted successfully",
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error deleting user",
-        description: error.message || "Something went wrong",
-        variant: "destructive",
-      });
-    },
-  });
+  const sortedUsers = (() => {
+    const arr = [...users];
+    if (!sortKey) return arr;
+    const getName = (u: User) =>
+      ([u.firstName, u.lastName].filter(Boolean).join(" ") || u.username || "").toLowerCase();
+    const getCompany = (u: User) => (u.company || "").toLowerCase();
+    const cmp = (a: string, b: string) => a.localeCompare(b);
+    arr.sort((a, b) => {
+      const av = sortKey === "name" ? getName(a) : getCompany(a);
+      const bv = sortKey === "name" ? getName(b) : getCompany(b);
+      const c = cmp(av, bv);
+      return sortDir === "asc" ? c : -c;
+    });
+    return arr;
+  })();
 
   // Edit form
   const form = useForm<EditUserFormValues>({
@@ -168,61 +149,92 @@ export default function AdminUsers() {
     },
   });
 
-  // Handle edit form submission
-  const onEditSubmit = (data: EditUserFormValues) => {
-    if (selectedUser) {
-      updateUser.mutate({
-        id: selectedUser.id,
-        data,
-      });
-    }
-  };
-
-  // Toggle purchase permission mutation
-  const togglePurchasePermission = useMutation({
-    mutationFn: async ({ id, canPurchase }: { id: number; canPurchase: boolean }) => {
-      const response = await apiRequest("PATCH", `/api/admin/users/${id}`, {
-        canPurchaseCredits: canPurchase
-      });
-      if (!response.ok) {
-        throw new Error("Failed to update user permissions");
-      }
-      return response.json();
-    },
-    onSuccess: (data) => {
-      const action = data.canPurchaseCredits ? "enabled" : "restricted";
+  // Update user handler
+  const [isUpdating, setIsUpdating] = useState(false);
+  async function updateUser({
+    id,
+    data,
+  }: {
+    id: number;
+    data: EditUserFormValues;
+  }) {
+    try {
+      setIsUpdating(true);
+      const response = await apiRequest("PATCH", `/api/admin/users/${id}`, data);
+      if (!response.ok) throw new Error("Failed to update user");
+      await response.json();
+      toast({ title: "User updated", description: "The user has been updated successfully" });
+      await refetchUsers();
+      setIsEditModalOpen(false);
+      setSelectedUser(null);
+      form.reset();
+    } catch (error: any) {
       toast({
-        title: "Permission updated",
-        description: `Credit purchases ${action} for this user`,
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error updating permissions",
-        description: error.message || "Something went wrong",
+        title: "Error updating user",
+        description: error?.message || "Something went wrong",
         variant: "destructive",
       });
-    },
-  });
-
-  // Handle permission toggle
-  const handleTogglePurchasePermission = (id: number, canPurchase: boolean) => {
-    togglePurchasePermission.mutate({ id, canPurchase });
-  };
-
-  // Handle delete user
-  const handleDelete = (id: number) => {
-    if (window.confirm("Are you sure you want to delete this user? This action cannot be undone and will delete all associated data.")) {
-      deleteUser.mutate(id);
+    } finally {
+      setIsUpdating(false);
     }
-  };
+  }
+
+  // Delete user handler
+  const [isDeletingId, setIsDeletingId] = useState<number | null>(null);
+  async function deleteUser(id: number) {
+    try {
+      setIsDeletingId(id);
+      const response = await apiRequest("DELETE", `/api/admin/users/${id}`);
+      if (!response.ok) throw new Error("Failed to delete user");
+      await response.json();
+      toast({ title: "User deleted", description: "The user has been deleted successfully" });
+      await refetchUsers();
+    } catch (error: any) {
+      toast({
+        title: "Error deleting user",
+        description: error?.message || "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeletingId(null);
+    }
+  }
+
+  // Toggle purchase permission handler
+  const [isTogglingId, setIsTogglingId] = useState<number | null>(null);
+  async function togglePurchasePermission({
+    id,
+    canPurchase,
+  }: {
+    id: number;
+    canPurchase: boolean;
+  }) {
+    try {
+      setIsTogglingId(id);
+      const response = await apiRequest("PATCH", `/api/admin/users/${id}`, {
+        canPurchaseCredits: canPurchase,
+      });
+      if (!response.ok) throw new Error("Failed to update user permissions");
+      const data = await response.json();
+      const action = data.canPurchaseCredits ? "enabled" : "restricted";
+      toast({ title: "Permission updated", description: `Credit purchases ${action} for this user` });
+      await refetchUsers();
+    } catch (error: any) {
+      toast({
+        title: "Error updating permissions",
+        description: error?.message || "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTogglingId(null);
+    }
+  }
 
   // Open edit modal
   const openEditModal = (user: User) => {
     setSelectedUser(user);
     form.reset({
-      username: user.username,
+  username: user.username || "",
       email: user.email,
       company: user.company || null,
       credits: user.credits,
@@ -232,6 +244,27 @@ export default function AdminUsers() {
       creditThreshold: user.creditThreshold || null,
     });
     setIsEditModalOpen(true);
+  };
+
+  // onEditSubmit using the new updateUser handler
+  const onEditSubmit = (data: EditUserFormValues) => {
+    if (selectedUser) {
+      void updateUser({ id: selectedUser.id, data });
+    }
+  };
+
+  // Handle permission toggle
+  const handleTogglePurchasePermission = (id: number, canPurchase: boolean) => {
+    void togglePurchasePermission({ id, canPurchase });
+  };
+
+  // Handle delete user
+  const handleDelete = (id: number) => {
+    if (window.confirm(
+      "Are you sure you want to delete this user? This action cannot be undone and will delete all associated data."
+    )) {
+      void deleteUser(id);
+    }
   };
 
   return (
@@ -247,16 +280,36 @@ export default function AdminUsers() {
         <Card className="overflow-hidden">
           <CardContent className="p-0">
             <Table>
-              <TableHeader>
+        <TableHeader>
                 <TableRow>
                   <TableHead>ID</TableHead>
-                  <TableHead>Username</TableHead>
+                  <TableHead>
+                    <button
+                      className="inline-flex items-center gap-1 select-none"
+                      onClick={() => toggleSort("name")}
+                    >
+                      Name
+                      {sortKey === "name" && (
+                        <span aria-hidden>{sortDir === "asc" ? "▲" : "▼"}</span>
+                      )}
+                    </button>
+                  </TableHead>
                   <TableHead>Email</TableHead>
-                  <TableHead>Company</TableHead>
+                  <TableHead>
+                    <button
+                      className="inline-flex items-center gap-1 select-none"
+                      onClick={() => toggleSort("company")}
+                    >
+                      Company
+                      {sortKey === "company" && (
+                        <span aria-hidden>{sortDir === "asc" ? "▲" : "▼"}</span>
+                      )}
+                    </button>
+                  </TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Credits</TableHead>
                   <TableHead>Can Purchase</TableHead>
-                  <TableHead>Created</TableHead>
+          <TableHead>Last Login</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -276,10 +329,11 @@ export default function AdminUsers() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  users.map((user: User) => (
-                    <TableRow key={user.id}>
+          sortedUsers.map((user: User) => (
+            <React.Fragment key={user.id}>
+                    <TableRow>
                       <TableCell>{user.id}</TableCell>
-                      <TableCell className="font-medium">{user.username}</TableCell>
+            <TableCell className="font-medium">{[user.firstName, user.lastName].filter(Boolean).join(' ') || user.username || '—'}</TableCell>
                       <TableCell>{user.email}</TableCell>
                       <TableCell>{user.company || "—"}</TableCell>
                       <TableCell>
@@ -328,7 +382,7 @@ export default function AdminUsers() {
                           </Button>
                         </div>
                       </TableCell>
-                      <TableCell>{formatDate(new Date(user.createdAt))}</TableCell>
+                      <TableCell>{user.lastLogin ? formatDate(new Date(user.lastLogin)) : '—'}</TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -338,6 +392,21 @@ export default function AdminUsers() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={async () => {
+                              try {
+                                const res = await fetch(`/api/admin/users/${user.id}/force-password-reset`, { method: 'POST' });
+                                if (!res.ok) throw new Error('Failed to flag reset');
+                                toast({ title: 'Password reset flagged', description: 'User will be asked to reset on next login.'});
+                              } catch (e: any) {
+                                toast({ title: 'Error', description: e?.message || 'Failed to flag password reset', variant: 'destructive' });
+                              }
+                            }}>
+                              <Lock className="h-4 w-4 mr-2" />
+                              Force password reset
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setExpanded((prev) => ({ ...prev, [user.id]: !prev[user.id] }))}>
+                              {expanded[user.id] ? 'Hide details' : 'View details'}
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openEditModal(user)}>
                               <Edit className="h-4 w-4 mr-2" />
                               Edit user
@@ -350,13 +419,13 @@ export default function AdminUsers() {
                               Manage API keys
                             </DropdownMenuItem>
                             <DropdownMenuItem 
-                              onClick={() => router.push(`/admin/user/${user.id}/transactions`)}
+                              onClick={() => router.push(`/admin/users/${user.id}/transactions`)}
                             >
                               <CreditCard className="h-4 w-4 mr-2" />
                               View transactions
                             </DropdownMenuItem>
                             <DropdownMenuItem 
-                              onClick={() => router.push(`/admin/user/${user.id}/api-usage`)}
+                              onClick={() => router.push(`/admin/users/${user.id}/api-usage`)}
                             >
                               <Activity className="h-4 w-4 mr-2" />
                               View API usage
@@ -373,7 +442,44 @@ export default function AdminUsers() {
                         </DropdownMenu>
                       </TableCell>
                     </TableRow>
-                  ))
+                    {expanded[user.id] && (
+                      <TableRow>
+                        <TableCell colSpan={9}>
+                          <div className="bg-muted/30 rounded-md p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                            <div>
+                              <div className="text-muted-foreground">Stripe Customer ID</div>
+                              <div className="font-medium">{user.stripeCustomerId || '—'}</div>
+                            </div>
+                            <div>
+                              <div className="text-muted-foreground">Parent User ID</div>
+                              <div className="font-medium">{user.parentUserId ?? '—'}</div>
+                            </div>
+                            <div>
+                              <div className="text-muted-foreground">Credit Threshold</div>
+                              <div className="font-medium">{user.creditThreshold ?? '—'}</div>
+                            </div>
+                            <div>
+                              <div className="text-muted-foreground">Grace Period End</div>
+                              <div className="font-medium">{user.gracePeriodEnd ? formatDate(new Date(user.gracePeriodEnd)) : '—'}</div>
+                            </div>
+                            <div>
+                              <div className="text-muted-foreground">Active</div>
+                              <div className="font-medium">{user.active ? 'Yes' : 'No'}</div>
+                            </div>
+                            <div>
+                              <div className="text-muted-foreground">Email Verified</div>
+                              <div className="font-medium">{user.emailVerified ? 'Yes' : 'No'}</div>
+                            </div>
+                            <div>
+                              <div className="text-muted-foreground">Two-Factor Enabled</div>
+                              <div className="font-medium">{user.twoFactorEnabled ? 'Yes' : 'No'}</div>
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+    </React.Fragment>
+      ))
                 )}
               </TableBody>
             </Table>
@@ -536,9 +642,9 @@ export default function AdminUsers() {
                 </Button>
                 <Button 
                   type="submit" 
-                  disabled={updateUser.isPending}
+                  disabled={isUpdating}
                 >
-                  {updateUser.isPending ? "Updating..." : "Update"}
+                  {isUpdating ? "Updating..." : "Update"}
                 </Button>
               </DialogFooter>
             </form>

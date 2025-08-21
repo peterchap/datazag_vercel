@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic'; // session dependent credits page
+
 import Layout from "@/components/layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,9 +10,45 @@ import ActivityTable from "@/components/activity-table";
 import ApiUsageChart from "@/components/api-usage-chart";
 import { formatNumber } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { useSearchParams } from "next/navigation";
+import { useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient } from "@/lib/queryClient";
 
 export default function Credits() {
   const { user } = useAuth();
+  const search = useSearchParams();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const success = search.get('success');
+    const canceled = search.get('canceled');
+    if (success === '1') {
+      // Refresh balances and transactions after redirect from Stripe Checkout
+      queryClient.invalidateQueries({ queryKey: ["/api/me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+      // Notify auth listeners (useAuth) to force-refresh user profile
+      try {
+        window.dispatchEvent(new CustomEvent('refreshUserData'));
+      } catch {}
+      // Webhook latency safeguard: re-invalidate once after a short delay
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["/api/me"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
+      }, 2000);
+      toast({ title: "Purchase complete", description: "Your credits will update shortly." });
+      // Remove query params from URL without reload
+      const url = new URL(window.location.href);
+      url.searchParams.delete('success');
+      url.searchParams.delete('bundleId');
+      window.history.replaceState({}, '', url.toString());
+    } else if (canceled === '1') {
+      toast({ title: "Checkout canceled", description: "You can try again anytime." });
+      const url = new URL(window.location.href);
+      url.searchParams.delete('canceled');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [search, toast]);
   
   return (
     <Layout

@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic'; // interactive test users page
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

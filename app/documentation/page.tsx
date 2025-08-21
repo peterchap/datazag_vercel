@@ -1,5 +1,8 @@
 'use client'
 
+// Force dynamic rendering to avoid build-time prerender issues when session is undefined
+export const dynamic = 'force-dynamic';
+
 import Layout from "@/components/layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,6 +18,8 @@ import { Button } from "@/components/ui/button";
 export default function Documentation() {
   const { user } = useAuth();
   const { activeApiKeys } = useApiKeys();
+  // Gracefully handle initial undefined states during hydration/prerender
+  const safeActiveKeys = Array.isArray(activeApiKeys) ? activeApiKeys : [];
 
   const codeExamples = {
     curl: `curl -X POST https://api.example.com/api/query \\
@@ -58,7 +63,7 @@ print(data)`
       title="API Documentation"
       description="Learn how to use our API to query your data"
     >
-      {activeApiKeys.length === 0 && (
+  {safeActiveKeys.length === 0 && (
         <Alert variant="default" className="mb-6">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>No API Keys Found</AlertTitle>
