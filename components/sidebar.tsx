@@ -1,10 +1,11 @@
+// components/sidebar.tsx
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
-import { 
+import {
   LayoutDashboard, User, Coins, Key, FileText, Settings, LogOut,
-  BarChart3, LineChart, Users, Percent, Upload
+  BarChart3, Users, Percent, Upload
 } from "lucide-react";
 import { USER_ROLES } from "@shared/schema";
 import NotificationBell from "./notification-bell";
@@ -14,16 +15,27 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
-function Sidebar({ className, onClose }: SidebarProps) {
+export default function Sidebar({ className, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
 
-  // Check if user has an admin role (CLIENT_ADMIN or BUSINESS_ADMIN)
-  // Use case-insensitive comparison to handle 'BUSINESS_ADMIN' vs 'business_admin' issues
-  const isAdmin = user && user.role && (
-    user.role.toLowerCase() === USER_ROLES.CLIENT_ADMIN.toLowerCase() || 
+  // Admin checks (case-insensitive role compare)
+  const isAdmin = !!(user?.role && (
+    user.role.toLowerCase() === USER_ROLES.CLIENT_ADMIN.toLowerCase() ||
     user.role.toLowerCase() === USER_ROLES.BUSINESS_ADMIN.toLowerCase()
-  );
+  ));
+  const isBizAdmin = user?.role?.toLowerCase() === USER_ROLES.BUSINESS_ADMIN.toLowerCase();
+
+  // Smarter active-state: exact for most items, prefix for docs & doc subpages
+  const activeFor = (href: string) => {
+    if (!pathname) return false;
+    // docs root should be active for any nested docs
+    if (href === "/docs") return pathname === "/docs" || pathname.startsWith("/docs/");
+    // sub-pages should allow nested paths
+    if (href.startsWith("/docs/")) return pathname === href || pathname.startsWith(href + "/");
+    // everything else: exact match
+    return pathname === href;
+  };
 
   const navItems = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -32,31 +44,22 @@ function Sidebar({ className, onClose }: SidebarProps) {
     { href: "/api-keys", label: "API Keys", icon: Key },
     { href: "/file-uploads", label: "File Uploads", icon: Upload },
     { href: "/transactions", label: "Transactions & Analytics", icon: BarChart3 },
-    { href: "/documentation", label: "Documentation", icon: FileText },
+    // ---- Docs area
+    { href: "/docs", label: "Docs", icon: FileText },
+    { href: "/docs/domain-intel", label: "Domain Intelligence API", icon: FileText },
+    // ----
     { href: "/settings", label: "Settings", icon: Settings },
   ];
-  
-  // Check if user is a business admin (has full system access) - case insensitive comparison
-  const isBizAdmin = user?.role?.toLowerCase() === USER_ROLES.BUSINESS_ADMIN.toLowerCase();
-  
-  // Add debug logs
-  console.log("Current user:", user);
-  console.log("User role:", user?.role);
-  console.log("Is business admin?", isBizAdmin);
-  
-  // Admin navigation items
+
   const adminNavItems = [
     { href: "/admin/dashboard", label: "Admin Dashboard", icon: LayoutDashboard },
-    // Show User Management only to business_admin users
-    ...(isBizAdmin ? [
-      { href: "/admin/users", label: "User Management", icon: Users },
-    ] : []),
+    ...(isBizAdmin ? [{ href: "/admin/users", label: "User Management", icon: Users }] : []),
     { href: "/admin/discount-codes", label: "Discount Codes", icon: Percent },
   ];
 
   const handleLogout = async () => {
     await logout();
-    if (onClose) onClose();
+    onClose?.();
   };
 
   return (
@@ -68,9 +71,10 @@ function Sidebar({ className, onClose }: SidebarProps) {
         <div className="ml-auto flex items-center">
           {isAdmin && <NotificationBell />}
           {onClose && (
-            <button 
+            <button
               onClick={onClose}
               className="p-2 rounded-md text-webflow-text-white hover:text-webflow-heading hover:bg-webflow-secondary"
+              aria-label="Close sidebar"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" />
@@ -80,81 +84,67 @@ function Sidebar({ className, onClose }: SidebarProps) {
           )}
         </div>
       </div>
+
       <div className="flex flex-col flex-grow overflow-y-auto">
         <nav className="flex-1 px-2 py-4 space-y-1">
           {navItems.map((item) => {
-            const isActive = pathname === item.href;
+            const Icon = item.icon;
+            const active = activeFor(item.href);
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                onClick={onClose}
                 className={cn(
-                  "flex items-center px-4 py-2 text-sm font-medium rounded-md",
-                  isActive
-                    ? "text-webflow-text-white bg-webflow-primary/90 border-l-3 border-webflow-accent"
+                  "group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors",
+                  active
+                    ? "bg-webflow-secondary text-webflow-heading"
                     : "text-webflow-text-white hover:bg-webflow-secondary hover:text-webflow-heading"
                 )}
               >
-                <item.icon className={cn("mr-3 text-lg h-5 w-5", isActive ? "text-webflow-accent" : "text-webflow-primary")} />
+                <Icon className={cn("mr-3 h-5 w-5", active ? "text-webflow-heading" : "text-webflow-text-white")} />
                 {item.label}
               </Link>
             );
           })}
+        </nav>
 
-          {/* Admin section - Only visible to admins */}
-          {isAdmin && (
-            <>
-              <div className="mt-8 mb-2 px-4">
-                <h3 className="text-xs font-semibold text-webflow-accent uppercase tracking-wider">
-                  Admin
-                </h3>
-              </div>
-              
+        {isAdmin && (
+          <>
+            <div className="px-2 py-2 text-xs font-semibold uppercase tracking-wider text-webflow-text-white/70">Admin</div>
+            <nav className="px-2 pb-4 space-y-1">
               {adminNavItems.map((item) => {
-                const isActive = pathname === item.href;
+                const Icon = item.icon;
+                const active = activeFor(item.href);
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
-                    onClick={onClose}
                     className={cn(
-                      "flex items-center px-4 py-2 text-sm font-medium rounded-md",
-                      isActive
-                        ? "text-webflow-text-white bg-webflow-primary/90 border-l-3 border-webflow-accent"
+                      "group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors",
+                      active
+                        ? "bg-webflow-secondary text-webflow-heading"
                         : "text-webflow-text-white hover:bg-webflow-secondary hover:text-webflow-heading"
                     )}
                   >
-                    <item.icon className={cn("mr-3 text-lg h-5 w-5", isActive ? "text-webflow-accent" : "text-webflow-primary")} />
+                    <Icon className={cn("mr-3 h-5 w-5", active ? "text-webflow-heading" : "text-webflow-text-white")} />
                     {item.label}
                   </Link>
                 );
               })}
-            </>
-          )}
-        </nav>
-      </div>
-      <div className="flex-shrink-0 p-4 border-t border-webflow-border">
-        <div className="flex items-center">
-          <div className="flex-shrink-0">
-            <div className="h-8 w-8 rounded-full bg-webflow-primary/20 flex items-center justify-center text-webflow-accent font-medium">
-              {user?.email?.charAt(0)?.toUpperCase() || "U"}
-            </div>
-          </div>
-          <div className="ml-3">
-            <p className="text-sm font-medium text-webflow-text-white">{user?.email}</p>
-            <p className="text-xs font-medium text-webflow-accent opacity-80">{user?.company || "Personal Account"}</p>
-          </div>
+            </nav>
+          </>
+        )}
+
+        <div className="mt-auto px-2 py-3 border-t border-webflow-border">
           <button
-            className="ml-auto p-1 rounded-full text-webflow-text-white hover:text-webflow-accent"
             onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-webflow-text-white hover:bg-webflow-secondary hover:text-webflow-heading"
           >
-            <LogOut className="h-5 w-5" />
+            <LogOut className="h-4 w-4" />
+            Log out
           </button>
         </div>
       </div>
     </div>
   );
 }
-
-export default Sidebar;
