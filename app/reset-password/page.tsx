@@ -1,8 +1,8 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const router = useRouter();
   const params = useSearchParams();
   const token = params.get('token') || '';
@@ -55,5 +55,24 @@ export default function ResetPasswordPage() {
         <button disabled={loading} className="w-full py-2 px-4 bg-blue-600 text-white rounded disabled:opacity-50">{loading ? 'Updating…' : 'Update password'}</button>
       </form>
     </div>
+  );
+}
+
+function LoadingSpinner() {
+  return (
+    <div className="max-w-md mx-auto mt-16 bg-white dark:bg-gray-900 rounded-lg shadow p-6">
+      <div className="flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="ml-2 text-gray-600">Loading...</span>
+      </div>
+    </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <ResetPasswordForm />
+    </Suspense>
   );
 }

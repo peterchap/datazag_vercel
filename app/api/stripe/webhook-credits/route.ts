@@ -4,10 +4,13 @@ import { db } from '@/lib/drizzle';
 import { users, transactions, creditBundles } from '@/shared/schema';
 import { eq } from 'drizzle-orm';
 
+// Removed unnecessary top-level import; dynamic import is used inside the POST handler.
+
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   console.log('Stripe webhook received');
+  // Removed unused and incorrect import of redisSyncService.
   const sig = req.headers.get('stripe-signature');
   if (!sig) return NextResponse.json({ error: 'Missing signature' }, { status: 400 });
   const body = await req.text();
@@ -55,7 +58,7 @@ export async function POST(req: NextRequest) {
         }
         // Sync credits to Redis
         try {
-          const { redisSyncService } = require('../../api-gateway/redis-sync-js.js');
+          const { redisSyncService } = await import('../../../lib/redis-sync-js');
           const redisResult = await redisSyncService.updateCredits(userId, newCredits);
           console.log(`Redis credits update for user ${userId}:`, redisResult);
         } catch (e) {

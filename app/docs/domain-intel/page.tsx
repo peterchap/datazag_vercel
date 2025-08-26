@@ -2,17 +2,33 @@
 "use client";
 import React, { useMemo, useState } from "react";
 
-function Container({ children, className = "" }) {
+interface ContainerProps {
+  children: React.ReactNode;
+  className?: string;
+}
+
+function Container({ children, className = "" }: ContainerProps) {
   return (
     <div className={`mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 ${className}`}>{children}</div>
   );
 }
-function Badge({ children }) {
+
+interface BadgeProps {
+  children: React.ReactNode;
+}
+
+function Badge({ children }: BadgeProps) {
   return (
     <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">{children}</span>
   );
 }
-function Pill({ children, tone = "slate" }) {
+
+interface PillProps {
+  children: React.ReactNode;
+  tone?: "slate" | "green" | "red" | "amber" | "blue" | "violet";
+}
+
+function Pill({ children, tone = "slate" }: PillProps) {
   const tones: Record<string, string> = {
     slate: "bg-slate-100 text-slate-700 border-slate-200",
     green: "bg-green-100 text-green-700 border-green-200",
@@ -25,10 +41,23 @@ function Pill({ children, tone = "slate" }) {
     <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium ${tones[tone]}`}>{children}</span>
   );
 }
-function Card({ children, className = "" }) {
+
+interface CardProps {
+  children: React.ReactNode;
+  className?: string;
+}
+
+function Card({ children, className = "" }: CardProps) {
   return <div className={`rounded-2xl border border-slate-200 bg-white shadow-sm ${className}`}>{children}</div>;
 }
-function SectionHeading({ eyebrow, title, subtitle }: { eyebrow?: string; title: string; subtitle?: string }) {
+
+interface SectionHeadingProps {
+  eyebrow?: string;
+  title: string;
+  subtitle?: string;
+}
+
+function SectionHeading({ eyebrow, title, subtitle }: SectionHeadingProps) {
   return (
     <div className="mb-6">
       {eyebrow && <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-blue-700">{eyebrow}</div>}
@@ -37,7 +66,19 @@ function SectionHeading({ eyebrow, title, subtitle }: { eyebrow?: string; title:
     </div>
   );
 }
-function Table({ columns, data }: { columns: any[]; data: any[] }) {
+
+interface TableColumn {
+  key: string;
+  header: string;
+  cell?: (row: any) => React.ReactNode;
+}
+
+interface TableProps {
+  columns: TableColumn[];
+  data: any[];
+}
+
+function Table({ columns, data }: TableProps) {
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200">
       <table className="min-w-full divide-y divide-slate-200">
@@ -61,7 +102,13 @@ function Table({ columns, data }: { columns: any[]; data: any[] }) {
     </div>
   );
 }
-function CopyButton({ text, className = "" }: { text: string; className?: string }) {
+
+interface CopyButtonProps {
+  text: string;
+  className?: string;
+}
+
+function CopyButton({ text, className = "" }: CopyButtonProps) {
   const [copied, setCopied] = useState(false);
   return (
     <button
@@ -78,7 +125,13 @@ function CopyButton({ text, className = "" }: { text: string; className?: string
     </button>
   );
 }
-function Code({ children, language = "bash" }: { children: React.ReactNode; language?: string }) {
+
+interface CodeProps {
+  children: React.ReactNode;
+  language?: string;
+}
+
+function Code({ children, language = "bash" }: CodeProps) {
   return (
     <pre className="relative overflow-x-auto rounded-xl border border-slate-200 bg-slate-900 p-4 text-slate-100">
       <div className="absolute right-2 top-2 text-[10px] uppercase tracking-wide text-slate-400">{language}</div>
@@ -86,7 +139,18 @@ function Code({ children, language = "bash" }: { children: React.ReactNode; lang
     </pre>
   );
 }
-function Tabs({ tabs, initial = 0 }: { tabs: { label: string; content: React.ReactNode }[]; initial?: number }) {
+
+interface Tab {
+  label: string;
+  content: React.ReactNode;
+}
+
+interface TabsProps {
+  tabs: Tab[];
+  initial?: number;
+}
+
+function Tabs({ tabs, initial = 0 }: TabsProps) {
   const [active, setActive] = useState(initial);
   return (
     <div>
@@ -105,7 +169,12 @@ function Tabs({ tabs, initial = 0 }: { tabs: { label: string; content: React.Rea
     </div>
   );
 }
-function Kbd({ children }: { children: React.ReactNode }) {
+
+interface KbdProps {
+  children: React.ReactNode;
+}
+
+function Kbd({ children }: KbdProps) {
   return <kbd className="rounded-md border border-slate-300 bg-slate-50 px-1.5 py-0.5 text-[11px] font-medium text-slate-700">{children}</kbd>;
 }
 

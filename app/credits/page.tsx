@@ -2,6 +2,7 @@
 
 export const dynamic = 'force-dynamic'; // session dependent credits page
 
+import { Suspense } from "react";
 import Layout from "@/components/layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +16,7 @@ import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 
-export default function Credits() {
+function CreditsContent() {
   const { user } = useAuth();
   const search = useSearchParams();
   const { toast } = useToast();
@@ -51,10 +52,7 @@ export default function Credits() {
   }, [search, toast]);
   
   return (
-    <Layout
-      title="Credits"
-      description="Manage your API credits and view your usage history"
-    >
+    <>
       <div className="mb-6">
         <Card>
           <CardContent className="pt-6">
@@ -104,6 +102,34 @@ export default function Credits() {
           </Card>
         </TabsContent>
       </Tabs>
+    </>
+  );
+}
+
+function CreditsLoading() {
+  return (
+    <div className="mb-6">
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span className="ml-2 text-gray-600">Loading credits...</span>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export default function Credits() {
+  return (
+    <Layout
+      title="Credits"
+      description="Manage your API credits and view your usage history"
+    >
+      <Suspense fallback={<CreditsLoading />}>
+        <CreditsContent />
+      </Suspense>
     </Layout>
   );
 }

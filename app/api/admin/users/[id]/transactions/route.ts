@@ -12,13 +12,14 @@ async function isAdmin(session: any) {
   return me?.role === USER_ROLES.BUSINESS_ADMIN || me?.role === USER_ROLES.CLIENT_ADMIN;
 }
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session: any = await getServerSession(authOptions as any);
     if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     if (!(await isAdmin(session))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-    const userId = parseInt(String(params.id), 10);
+    const { id } = await params;
+    const userId = parseInt(String(id), 10);
     if (Number.isNaN(userId)) return NextResponse.json({ error: 'Invalid user id' }, { status: 400 });
 
     // Pagination & filters

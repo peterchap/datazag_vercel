@@ -44,7 +44,7 @@ const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
-const { redisSyncService } = require('./redis-sync-js');
+const { redisSyncService } = require('../lib/redis-sync-js');
 
 // Basic validation
 if (!process.env.DATABASE_URL) {

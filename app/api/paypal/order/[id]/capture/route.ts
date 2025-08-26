@@ -5,11 +5,12 @@ import { db } from '@/lib/drizzle';
 import { users, transactions, creditBundles } from '@/shared/schema';
 import { eq } from 'drizzle-orm';
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
+  const { id } = await params;
   const userId = (session?.user as any)?.id ? parseInt(String((session!.user as any).id), 10) : undefined;
   if (!userId) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-  const orderId = params.id;
+  const orderId = id;
 
   // In a real integration, verify/capture with PayPal using orderId.
   // Here we accept it and credit user based on provided bundle in body (defensive checks included).
