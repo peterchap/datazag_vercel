@@ -90,16 +90,18 @@ export function SidebarNav({ navItems, adminNavItems, clientAdminNavItems, isBus
       {isBusinessAdmin && (
         <>
           <div className="my-4 h-px bg-border" />
-          <h3 className="px-4 text-xs font-semibold uppercase text-muted-foreground">System Admin</h3>
+          <h3 className="px-4 text-xs font-semibold uppercase text-muted-foreground" style={{ paddingTop: '20px' }}>System Admin</h3>
           {adminNavItems.map(renderLink)}
         </>
       )}
       
       {/* Show the new Company Admin panel only to Client Admins */}
       {isClientAdmin && (
-         <>
+        <>
           <div className="my-4 h-px bg-border" />
-          <h3 className="px-4 text-xs font-semibold uppercase text-muted-foreground">Company Admin</h3>
+          <h3 className="px-4 text-xs font-semibold uppercase text-muted-foreground" style={{ paddingTop: '20px' }}>
+            Company Admin
+          </h3>
           {clientAdminNavItems.map(renderLink)}
         </>
       )}

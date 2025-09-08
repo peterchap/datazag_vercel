@@ -34,6 +34,61 @@ type PaginatedResponse<T> = { data: T[]; pagination: { page: number; limit: numb
 // --- End Types ---
 
 
+// --- Helper Components (to reduce repetition and improve readability) ---
+const StatCard = ({ title, value, loading, icon }: { title: string, value: any, loading: boolean, icon: React.ReactNode }) => (
+  <Card>
+    <CardHeader className="flex flex-row items-center justify-between pb-2">
+      <CardTitle className="text-sm font-medium">{title}</CardTitle>
+      <div className="text-muted-foreground">{icon}</div>
+    </CardHeader>
+    <CardContent>
+      <div className="text-2xl font-bold">
+        {loading ? <div className="h-8 w-16 bg-muted animate-pulse rounded" /> : (typeof value === 'string' ? value : formatNumber(value))}
+      </div>
+    </CardContent>
+  </Card>
+);
+
+const ChartCard = ({ title, icon, children }: { title: string, icon: React.ReactNode, children: React.ReactNode }) => (
+  <Card>
+    <CardHeader>
+      <CardTitle className="flex items-center text-base font-semibold">
+        <div className="mr-2 text-muted-foreground">{icon}</div>
+        {title}
+      </CardTitle>
+    </CardHeader>
+    <CardContent className="h-80 p-0 pr-4 pb-4">{children}</CardContent>
+  </Card>
+);
+
+const DataTable = ({ headers, data, loading, renderRow, pagination, onPageChange }: any) => (
+  <Card>
+    <CardContent className="p-0">
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader><TableRow>{headers.map((h: string) => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow><TableCell colSpan={headers.length} className="h-24 text-center"><div className="flex justify-center items-center"><div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full"></div></div></TableCell></TableRow>
+            ) : !data || data.length === 0 ? (
+              <TableRow><TableCell colSpan={headers.length} className="h-24 text-center">No data found.</TableCell></TableRow>
+            ) : (
+              data.map(renderRow)
+            )}
+          </TableBody>
+        </Table>
+      </div>
+      {pagination && pagination.totalPages > 1 && (
+        <div className="flex items-center justify-end space-x-2 border-t p-4">
+          <button onClick={() => onPageChange(pagination.page - 1)} disabled={pagination.page === 1} className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">Previous</button>
+          <div className="text-sm font-medium">Page {pagination.page} of {pagination.totalPages}</div>
+          <button onClick={() => onPageChange(pagination.page + 1)} disabled={pagination.page === pagination.totalPages} className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">Next</button>
+        </div>
+      )}
+    </CardContent>
+  </Card>
+);
+
 export function AdminDashboardClient({ initialStats, initialChartData }: { initialStats: OverviewStats, initialChartData: ChartData }) {
   // Use the server-fetched data for the initial state, then poll for live updates
   const { data: stats, loading: statsLoading } = useAutoFetch<OverviewStats>(
@@ -79,15 +134,51 @@ export function AdminDashboardClient({ initialStats, initialChartData }: { initi
         </Alert>
       )}
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <StatCard title="Total Users" value={stats?.totalUsers} loading={statsLoading} icon={<Users />} />
-        <StatCard title="Total API Keys" value={stats?.totalApiKeys} loading={statsLoading} icon={<Key />} />
-        <StatCard title="Total Revenue" value={formatCurrency((stats?.totalRevenue || 0) / 100)} loading={statsLoading} icon={<DollarSign />} />
-        <StatCard title="API Requests" value={stats?.totalApiUsage} loading={statsLoading} icon={<Activity />} />
-        <StatCard title="Transactions" value={stats?.totalTransactions} loading={statsLoading} icon={<CreditCard />} />
-        <StatCard title="Active Discounts" value={stats?.activeDiscountCodes} loading={statsLoading} icon={<Percent />} />
-      </div>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <StatCard
+            title="Total Users"
+            value={stats?.totalUsers ?? 0}
+            loading={statsLoading}
+            icon={<Users />}
+          />
+          <StatCard
+            title="Total API Keys"
+            value={stats?.totalApiKeys ?? 0}
+            loading={statsLoading}
+            icon={<Key />}
+          />
+          <StatCard
+            title="Total Transactions"
+            value={stats?.totalTransactions ?? 0}
+            loading={statsLoading}
+            icon={<CreditCard />}
+          />
+          <StatCard
+            title="Total API Usage"
+            value={stats?.totalApiUsage ?? 0}
+            loading={statsLoading}
+            icon={<Activity />}
+          />
+          <StatCard
+            title="Total Revenue"
+            value={formatCurrency(stats?.totalRevenue ?? 0)}
+            loading={statsLoading}
+            icon={<DollarSign />}
+          />
+          <StatCard
+            title="Active Discounts"
+            value={stats?.activeDiscountCodes ?? 0}
+            loading={statsLoading}
+            icon={<Percent />}
+          />
+        </div>
+      <style jsx global>{`
+        .stat-card-value {
+          font-variant-numeric: tabular-nums;
+          font-feature-settings: 'tnum';
+        }
+      `}</style>
 
       {/* Charts */}
        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -166,58 +257,3 @@ export function AdminDashboardClient({ initialStats, initialChartData }: { initi
     </div>
   );
 }
-
-// --- Helper Components (to reduce repetition and improve readability) ---
-const StatCard = ({ title, value, loading, icon }: { title: string, value: any, loading: boolean, icon: React.ReactNode }) => (
-  <Card>
-    <CardHeader className="flex flex-row items-center justify-between pb-2">
-      <CardTitle className="text-sm font-medium">{title}</CardTitle>
-      <div className="text-muted-foreground">{icon}</div>
-    </CardHeader>
-    <CardContent>
-      <div className="text-2xl font-bold">
-        {loading ? <div className="h-8 w-16 bg-muted animate-pulse rounded" /> : (typeof value === 'string' ? value : formatNumber(value))}
-      </div>
-    </CardContent>
-  </Card>
-);
-
-const ChartCard = ({ title, icon, children }: { title: string, icon: React.ReactNode, children: React.ReactNode }) => (
-  <Card>
-    <CardHeader>
-      <CardTitle className="flex items-center text-base font-semibold">
-        <div className="mr-2 text-muted-foreground">{icon}</div>
-        {title}
-      </CardTitle>
-    </CardHeader>
-    <CardContent className="h-80 p-0 pr-4 pb-4">{children}</CardContent>
-  </Card>
-);
-
-const DataTable = ({ headers, data, loading, renderRow, pagination, onPageChange }: any) => (
-  <Card>
-    <CardContent className="p-0">
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader><TableRow>{headers.map((h: string) => <TableHead key={h}>{h}</TableHead>)}</TableRow></TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={headers.length} className="h-24 text-center"><div className="flex justify-center items-center"><div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full"></div></div></TableCell></TableRow>
-            ) : !data || data.length === 0 ? (
-              <TableRow><TableCell colSpan={headers.length} className="h-24 text-center">No data found.</TableCell></TableRow>
-            ) : (
-              data.map(renderRow)
-            )}
-          </TableBody>
-        </Table>
-      </div>
-      {pagination && pagination.totalPages > 1 && (
-        <div className="flex items-center justify-end space-x-2 border-t p-4">
-          <button onClick={() => onPageChange(pagination.page - 1)} disabled={pagination.page === 1} className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">Previous</button>
-          <div className="text-sm font-medium">Page {pagination.page} of {pagination.totalPages}</div>
-          <button onClick={() => onPageChange(pagination.page + 1)} disabled={pagination.page === pagination.totalPages} className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">Next</button>
-        </div>
-      )}
-    </CardContent>
-  </Card>
-);

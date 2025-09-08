@@ -44,7 +44,7 @@ export async function Sidebar() {
   ];
 
   const adminNavItems = [
-    { href: "/admin/dashboard", iconName: "Shield" as const, label: "Admin Overview" },
+    { href: "/admin", iconName: "Shield" as const, label: "Admin Overview" },
     { href: "/admin/users", iconName: "Users" as const, label: "Manage Users" },
     { href: "/admin/jobs", iconName: "Server" as const, label: "Manage Jobs" },
     { href: "/admin/transactions", iconName: "List" as const, label: "Transactions" },
@@ -59,16 +59,19 @@ export async function Sidebar() {
   return (
     <div className="flex h-full flex-col border-r bg-muted/20">
       {/* Header with Logo */}
-      <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
-        <Link href="/" className="flex items-center gap-2 font-semibold">
-          <Image
-            src="/attached_assets/dz-logo.png"
-            alt="Datazag Logo"
-            width={120}
-            height={32}
-            className="h-8 w-auto"
-          />
-        </Link>
+      <div className="flex flex-col h-14 justify-center border-b px-4 lg:h-[60px] lg:px-6 mt-[10px]">
+        <div className="flex flex-col items-center w-full">
+          <Link href="/" className="flex items-center justify-center gap-2 font-semibold w-full">
+        <Image
+          src="/dz-logo.png"
+          alt="Datazag Logo"
+          width={120}
+          height={32}
+          className="h-8 w-auto"
+        />
+          </Link>
+          <span className="text-center font-semi-bold text-[1.2rem] w-full block">Customer Portal</span>
+        </div>
       </div>
 
       {/* Main Navigation */}
@@ -78,6 +81,7 @@ export async function Sidebar() {
         clientAdminNavItems={clientAdminNavItems}
         isBusinessAdmin={isBusinessAdmin}
         isClientAdmin={isClientAdmin}
+        isAdmin={isBusinessAdmin || isClientAdmin}
       />
 
       {/* User Profile & Actions Section */}

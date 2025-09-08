@@ -9,7 +9,9 @@ export function formatCurrency(value: number): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
-  }).format(value);
+    maximumFractionDigits: 0,
+    minimumFractionDigits: 0,
+  }).format(Math.round(value));
 }
 
 export function formatNumber(value: number): string {
