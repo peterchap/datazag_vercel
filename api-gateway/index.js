@@ -21,6 +21,7 @@ app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const adminRoutes = require('./routes/admin');
+const clientAdminRoutes = require('./routes/client-admin');
 const stripeRoutes = require('./routes/stripe');
 const publicRoutes = require('./routes/public');
 
@@ -28,6 +29,7 @@ const publicRoutes = require('./routes/public');
 app.use('/api', authRoutes);
 app.use('/api', userRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/client-admin', clientAdminRoutes);
 app.use('/api/stripe', stripeRoutes);
 app.use('/api', publicRoutes);
 

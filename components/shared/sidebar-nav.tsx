@@ -17,7 +17,11 @@ import {
   CreditCard,
   HeartPulse,
   List,
-  Server
+  Server,
+  FileUp,
+  Building,
+  MessageSquare,
+  LifeBuoy
 } from 'lucide-react';
 
 // This mapping allows us to pass simple strings from the Server Component
@@ -33,7 +37,11 @@ const iconMap: Record<string, LucideIcon> = {
   CreditCard,
   HeartPulse,
   List,
-  Server
+  Server,
+  FileUp,
+  Building,
+  MessageSquare,
+  LifeBuoy
 };
 
 // Define the shape of a single navigation item
@@ -47,23 +55,25 @@ interface NavItem {
 interface SidebarNavProps {
   navItems: NavItem[];
   adminNavItems: NavItem[];
+  clientAdminNavItems: NavItem[];
+  isBusinessAdmin: boolean;
+  isClientAdmin: boolean;
   isAdmin: boolean;
 }
 
-export function SidebarNav({ navItems, adminNavItems, isAdmin }: SidebarNavProps) {
-  const pathname = usePathname(); // This hook gets the current URL path
+export function SidebarNav({ navItems, adminNavItems, clientAdminNavItems, isBusinessAdmin, isClientAdmin }: SidebarNavProps) {
+  const pathname = usePathname();
 
-  // A helper function to render a single link, reducing code duplication
   const renderLink = (item: NavItem) => {
-    const Icon = iconMap[item.iconName]; // Look up the icon component from the map
-    const isActive = pathname === item.href; // Check if the link is for the current page
+    const Icon = iconMap[item.iconName];
+    const isActive = pathname === item.href;
 
     return (
       <Link
         key={item.href}
         href={item.href}
-        className={`flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary ${
-          isActive ? 'bg-muted text-primary' : '' // Apply active styles
+        className={`flex items-center gap-3 rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground ${
+          isActive ? 'bg-accent text-accent-foreground' : 'text-muted-foreground'
         }`}
       >
         <Icon className="h-4 w-4" />
@@ -74,15 +84,23 @@ export function SidebarNav({ navItems, adminNavItems, isAdmin }: SidebarNavProps
 
   return (
     <nav className="flex-1 space-y-1 py-4">
-      {/* Render the standard navigation items */}
       {navItems.map(renderLink)}
 
-      {/* Conditionally render the admin section based on the prop from the server */}
-      {isAdmin && (
+      {/* Show the full admin panel only to Business Admins */}
+      {isBusinessAdmin && (
         <>
           <div className="my-4 h-px bg-border" />
-          <h3 className="px-4 text-xs font-semibold uppercase text-muted-foreground">Admin</h3>
+          <h3 className="px-4 text-xs font-semibold uppercase text-muted-foreground">System Admin</h3>
           {adminNavItems.map(renderLink)}
+        </>
+      )}
+      
+      {/* Show the new Company Admin panel only to Client Admins */}
+      {isClientAdmin && (
+         <>
+          <div className="my-4 h-px bg-border" />
+          <h3 className="px-4 text-xs font-semibold uppercase text-muted-foreground">Company Admin</h3>
+          {clientAdminNavItems.map(renderLink)}
         </>
       )}
     </nav>
