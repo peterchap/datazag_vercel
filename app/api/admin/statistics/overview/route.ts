@@ -1,73 +1,52 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
 import { db } from '@/lib/drizzle';
-import { users, apiKeys, transactions, apiUsage, USER_ROLES } from '@/shared/schema';
+import { users, apiKeys, transactions, apiUsage, adminRequests, discountCodes } from '@/shared/schema';
 import { count, sum, eq } from 'drizzle-orm';
+import { USER_ROLES } from '@/shared/schema';
 
-interface SessionUser {
-  id: string;
-  email?: string | null;
-  role?: string;
-  credits?: number;
-}
+// This is now an API Route Handler for the GET method.
+export async function GET() {
+  const session = await auth();
 
-async function isAdmin(session: any) {
-  const user = session?.user as SessionUser | undefined;
-  if (!user?.id) return false;
-  const [dbUser] = await db.select()
-    .from(users)
-    .where(eq(users.id, parseInt(user.id)))
-    .limit(1);
-  return dbUser?.role === USER_ROLES.BUSINESS_ADMIN || dbUser?.role === USER_ROLES.CLIENT_ADMIN;
-}
+  // Secure the endpoint to ensure only admins can access it
+  if (!session?.user || (session.user.role !== USER_ROLES.BUSINESS_ADMIN && session.user.role !== USER_ROLES.CLIENT_ADMIN)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
 
-export async function GET(request: NextRequest) {
+  // Your existing data-fetching logic is now inside the GET handler.
   try {
-  const session = await getServerSession(authOptions);
-  const user = session?.user as SessionUser | undefined;
-  if (!user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const [
+      userCountResult,
+      apiKeyCountResult,
+      transactionCountResult,
+      apiUsageCountResult,
+      revenueResult,
+      pendingRequestsResult,
+      activeDiscountsResult
+    ] = await Promise.all([
+        db.select({ value: count() }).from(users),
+        db.select({ value: count() }).from(apiKeys),
+        db.select({ value: count() }).from(transactions),
+        db.select({ value: count() }).from(apiUsage),
+        db.select({ value: sum(transactions.amount) }).from(transactions).where(eq(transactions.type, 'purchase')),
+        db.select({ value: count() }).from(adminRequests).where(eq(adminRequests.status, 'pending')),
+        db.select({ value: count() }).from(discountCodes).where(eq(discountCodes.active, true))
+    ]);
 
-    if (!(await isAdmin(session))) {
-      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
-    }
+    const stats = {
+      totalUsers: userCountResult[0].value,
+      totalApiKeys: apiKeyCountResult[0].value,
+      totalTransactions: transactionCountResult[0].value,
+      totalApiUsage: apiUsageCountResult[0].value,
+      totalRevenue: parseInt(revenueResult[0].value || '0', 10),
+      pendingAdminRequests: pendingRequestsResult[0].value,
+      activeDiscountCodes: activeDiscountsResult[0].value
+    };
 
-    // Get total users
-    const [totalUsersResult] = await db.select({ count: count() }).from(users);
-    const totalUsers = totalUsersResult.count;
-
-    // Get total API keys
-    const [totalApiKeysResult] = await db.select({ count: count() }).from(apiKeys);
-    const totalApiKeys = totalApiKeysResult.count;
-
-    // Get total transactions and revenue
-    const [totalTransactionsResult] = await db.select({ count: count() }).from(transactions);
-    const totalTransactions = totalTransactionsResult.count;
-
-    const [revenueResult] = await db.select({ 
-      total: sum(transactions.amount) 
-    }).from(transactions).where(eq(transactions.type, 'purchase'));
-    const totalRevenue = revenueResult.total || 0;
-
-    // Get total API usage
-    const [totalApiUsageResult] = await db.select({ count: count() }).from(apiUsage);
-    const totalApiUsage = totalApiUsageResult.count;
-
-    // Active discount codes would need to be added to schema
-    const activeDiscountCodes = 0; // Placeholder
-
-    return NextResponse.json({
-      totalUsers,
-      totalApiKeys,
-      totalTransactions,
-      totalApiUsage,
-      totalRevenue,
-      activeDiscountCodes
-    });
+    return NextResponse.json(stats);
   } catch (error) {
-    console.error('Error fetching admin statistics:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error("Error fetching admin overview stats:", error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

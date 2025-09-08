@@ -1,33 +1,28 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { NextResponse } from 'next/server';
+import { auth } from '@/lib/auth'; // 1. Import the new v5 auth helper
 import { db } from '@/lib/drizzle';
 import { apiUsage } from '@/shared/schema';
 import { eq, desc } from 'drizzle-orm';
 
-interface SessionUser {
-  id: string;
-  email?: string | null;
-  role?: string;
-}
+export async function GET() {
+  // 2. Get the session using the modern auth() function
+  const session = await auth();
 
-export async function GET(request: NextRequest) {
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
-  const session = await getServerSession(authOptions);
-  const user = session?.user as SessionUser | undefined;
-  if (!user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    // Fetch API usage data for the logged-in user from the database
+    const userApiUsage = await db.query.apiUsage.findMany({
+      where: eq(apiUsage.userId, parseInt(session.user.id, 10)),
+      orderBy: [desc(apiUsage.createdAt)],
+      limit: 100, // Limit the number of records for performance
+    });
 
-    const usage = await db.select()
-      .from(apiUsage)
-  .where(eq(apiUsage.userId, parseInt(user.id)))
-      .orderBy(desc(apiUsage.createdAt))
-      .limit(100);
-
-    return NextResponse.json(usage);
+    return NextResponse.json(userApiUsage);
   } catch (error) {
-    console.error('Error fetching API usage:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Failed to fetch API usage:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

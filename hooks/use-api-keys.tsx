@@ -1,97 +1,70 @@
-import { useEffect, useState } from "react";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+'use client';
 
-interface ApiKey {
-  id: number;
-  user_id?: number | string;
-  key: string;
-  name: string;
-  active: boolean;
-  created_at: string;
-}
+import { useState, useCallback } from "react";
+import { useAutoFetch } from "./use-auto-fetch";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "./use-toast";
+import type { ApiKey } from "@/components/api-keys/api-keys-client";
 
 export function useApiKeys() {
   const { toast } = useToast();
   const [showNewKey, setShowNewKey] = useState<ApiKey | null>(null);
-  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [error, setError] = useState<unknown>(null);
-  const [isCreating, setIsCreating] = useState<boolean>(false);
-  const [isDeleting, setIsDeleting] = useState<boolean>(false);
   
-  const loadKeys = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const res = await apiRequest("GET", "/api/api-keys");
-      const json = await res.json();
-      setApiKeys(json?.keys ?? []);
-    } catch (e) {
-      setError(e);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // This hook now correctly expects a direct array of ApiKey objects.
+  const { 
+    data: apiKeys, 
+    loading, 
+    error, 
+    refetch 
+  } = useAutoFetch<ApiKey[]>('/api/api-keys', {
+    // Set an initial default value to prevent errors on the first render
+    initialData: [], 
+  });
 
-  useEffect(() => {
-    loadKeys();
-  }, []);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const createApiKey = async (data: { name: string }) => {
+  const createApiKey = useCallback(async (values: { name: string }) => {
     setIsCreating(true);
     try {
-      const res = await apiRequest("POST", "/api/api-keys", data);
-      if (!res.ok) throw new Error(`Error: ${res.status}: ${await res.text()}`);
-      const result = await res.json();
-      setShowNewKey(result?.key);
-      toast({
-        title: "API Key Created",
-        description: "Your new API key has been created. Copy it now; it won't be shown again.",
-      });
-      await loadKeys();
-    } catch (error: any) {
-      toast({
-        title: "Error Creating API Key",
-        description: error?.message || "An error occurred while creating your API key.",
-        variant: "destructive",
-      });
-      throw error;
+      const res = await apiRequest('POST', '/api/api-keys', values);
+      const newKeyData = await res.json();
+      
+      // The API now returns the full key object directly
+      setShowNewKey(newKeyData); 
+      refetch(); // Refetch the list to include the new (masked) key
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to create API key", variant: "destructive" });
     } finally {
       setIsCreating(false);
     }
-  };
+  }, [refetch, toast]);
 
-  const deleteApiKey = async (id: number) => {
+  const deleteApiKey = useCallback(async (keyId: number) => {
     setIsDeleting(true);
     try {
-      const res = await apiRequest("DELETE", `/api/api-keys/${id}`);
-      if (!res.ok) throw new Error(`Error: ${res.status}: ${await res.text()}`);
-      await res.json();
-      toast({ title: "API Key Deleted", description: "Your API key has been permanently deleted." });
-      await loadKeys();
-    } catch (error: any) {
-      toast({
-        title: "Error Deleting API Key",
-        description: error?.message || "An error occurred while deleting your API key.",
-        variant: "destructive",
-      });
-      throw error;
+      // We need a DELETE proxy endpoint for this to work
+      await apiRequest('DELETE', `/api/api-keys/${keyId}`); 
+      toast({ title: "API key deleted", description: "The API key has been deleted." });
+      refetch();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to delete API key", variant: "destructive" });
     } finally {
       setIsDeleting(false);
     }
-  };
-
+  }, [refetch, toast]);
+  
   return {
-  apiKeys,
-  activeApiKeys: apiKeys,
-  isLoading,
-  error,
-  createApiKey,
-  deleteApiKey,
-  isCreating,
-  isDeleting,
+    // The hook now returns the data directly as `apiKeys`.
+    apiKeys: Array.isArray(apiKeys) ? apiKeys : [],
+    loading,
+    error,
+    refetch,
     showNewKey,
     setShowNewKey,
+    isCreating,
+    isDeleting,
+    createApiKey,
+    deleteApiKey,
   };
 }

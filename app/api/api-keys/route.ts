@@ -1,98 +1,70 @@
 // Session-based API key management for the portal UI (no admin secret, no CORS hurdles)
-import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
-import { pool } from '@/lib/db';
-import { getCurrentUser } from '@/lib/getCurrentUser';
+import { NextResponse, type NextRequest } from 'next/server';
+import { auth } from '@/lib/auth';
 
-function generateAPIKey() {
-  return 'datazag_' + crypto.randomBytes(32).toString('hex');
-}
+const GATEWAY_URL = process.env.API_GATEWAY_URL || 'http://localhost:3000';
 
-// GET /api/api-keys - list current user's keys
-export async function GET(request: NextRequest) {
-  const user = await getCurrentUser(request);
-  if (!user?.id) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+/**
+ * GET /api/api-keys
+ * Securely proxies the request to the API Gateway to fetch the user's keys.
+ */
+export async function GET(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.id || !session.jwt) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const client = await pool.connect();
   try {
-    const result = await client.query(
-      `
-      SELECT 
-        id,
-        key AS key,
-        name AS name,
-        active AS active,
-        created_at
-      FROM api_keys
-      WHERE user_id = $1
-      ORDER BY created_at DESC
-      `,
-      [String(user.id)]
-    );
-
-    return NextResponse.json({
-      success: true,
-      keys: result.rows,
-    });
-  } catch (error: any) {
-    console.error('Get API keys error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Internal server error', details: error.message },
-      { status: 500 }
-    );
-  } finally {
-    client.release();
-  }
-}
-
-// POST /api/api-keys - create a key for current user
-export async function POST(request: NextRequest) {
-  const user = await getCurrentUser(request);
-  if (!user?.id) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const client = await pool.connect();
-  try {
-    const body = await request.json().catch(() => ({}));
-    const name = body?.name;
-    if (!name || typeof name !== 'string') {
-      return NextResponse.json({ success: false, error: 'name is required' }, { status: 400 });
-    }
-
-    const apiKey = generateAPIKey();
-
-    await client.query('BEGIN');
-    const inserted = await client.query(
-      `
-      INSERT INTO api_keys (
-        user_id, key, name, active, created_at
-      ) VALUES ($1, $2, $3, true, NOW())
-      RETURNING id, key AS key, name AS name, active AS active, created_at
-      `,
-      [String(user.id), apiKey, name]
-    );
-    await client.query('COMMIT');
-
-    // You may also sync to Redis here if desired.
-
-    return NextResponse.json(
-      {
-        success: true,
-        key: inserted.rows[0],
+    const gatewayResponse = await fetch(`${GATEWAY_URL}/api/api-keys`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${session.jwt}`,
       },
-      { status: 201 }
-    );
-  } catch (error: any) {
-    await client.query('ROLLBACK').catch(() => {});
-    console.error('Create API key error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Internal server error', details: error.message },
-      { status: 500 }
-    );
-  } finally {
-    client.release();
+      cache: 'no-store',
+    });
+
+    const data = await gatewayResponse.json();
+    if (!gatewayResponse.ok) {
+      return NextResponse.json(data, { status: gatewayResponse.status });
+    }
+    return NextResponse.json(data);
+
+  } catch (error) {
+    console.error('Proxy GET /api-keys error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
+
+/**
+ * POST /api/api-keys
+ * Securely proxies the request to the API Gateway to create a new key.
+ */
+export async function POST(req: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.id || !session.jwt) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const body = await req.json();
+
+    const gatewayResponse = await fetch(`${GATEWAY_URL}/api/api-keys`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.jwt}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const data = await gatewayResponse.json();
+    if (!gatewayResponse.ok) {
+      return NextResponse.json(data, { status: gatewayResponse.status });
+    }
+    return NextResponse.json(data, { status: 201 });
+
+  } catch (error) {
+    console.error('Proxy POST /api-keys error:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

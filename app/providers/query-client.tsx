@@ -1,8 +1,18 @@
-'use client'
+"use client";
 
-import React from 'react'
+import { SessionProvider } from "next-auth/react";
+import { ThemeProvider } from "next-themes";
+import { CurrencyProvider } from "@/components/currency-selector"; // Import the new provider
 
-export default function QueryProviders({ children }: { children: React.ReactNode }) {
-  // React Query removed; passthrough wrapper retained for compatibility.
-  return <>{children}</>
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <SessionProvider>
+      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        {/* Wrap the application with the CurrencyProvider */}
+        <CurrencyProvider>
+          {children}
+        </CurrencyProvider>
+      </ThemeProvider>
+    </SessionProvider>
+  );
 }

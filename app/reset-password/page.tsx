@@ -1,78 +1,94 @@
-"use client";
-import { useEffect, useState, Suspense } from 'react';
+'use client';
+
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from '@/hooks/use-toast';
+import { apiRequest } from '@/lib/queryClient';
+import Link from 'next/link';
+import { Loader2 } from 'lucide-react';
 
 function ResetPasswordForm() {
   const router = useRouter();
   const params = useSearchParams();
+  
+  // This is the crucial part: we get the token from the URL search parameters.
   const token = params.get('token') || '';
-  const [email, setEmail] = useState('');
+  
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [msg, setMsg] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const e = params.get('email');
-    if (e) setEmail(e);
-  }, [params]);
+  const { toast } = useToast();
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErr(null);
-    if (!token) return setErr('Missing reset token');
-    if (!email) return setErr('Missing email');
-    if (!password || password.length < 8) return setErr('Password must be at least 8 characters');
-    if (password !== confirm) return setErr("Passwords don't match");
+    setError(null);
+    if (password !== confirm) return setError("Passwords don't match.");
+    if (password.length < 8) return setError("Password must be at least 8 characters.");
+    
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, email, password }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || 'Reset failed');
-      setMsg('Password updated. You can now log in.');
-      setTimeout(() => router.push('/login'), 1200);
+      // The token is now correctly included in the payload.
+      const res = await apiRequest("POST", "/api/reset-password", { token, password });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Reset failed.");
+
+      setMessage(data.message);
+      toast({ title: "Success!", description: "Your password has been updated." });
+      setTimeout(() => router.push('/login'), 2000);
     } catch (e: any) {
-      setErr(e?.message || 'Reset failed');
+      setError(e?.message || 'Reset failed. The link may be invalid or expired.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="max-w-md mx-auto mt-16 bg-white dark:bg-gray-900 rounded-lg shadow p-6">
-      <h1 className="text-2xl font-semibold mb-4">Reset Password</h1>
-      {msg && <div className="mb-3 text-green-600">{msg}</div>}
-      {err && <div className="mb-3 text-red-600">{err}</div>}
-      <form onSubmit={onSubmit} className="space-y-4">
-        <input className="w-full input" value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" type="email" required />
-        <input className="w-full input" value={password} onChange={e=>setPassword(e.target.value)} placeholder="New password" type="password" required />
-        <input className="w-full input" value={confirm} onChange={e=>setConfirm(e.target.value)} placeholder="Confirm password" type="password" required />
-        <button disabled={loading} className="w-full py-2 px-4 bg-blue-600 text-white rounded disabled:opacity-50">{loading ? 'Updating…' : 'Update password'}</button>
-      </form>
+    <div className="mx-auto w-full max-w-sm space-y-6">
+        <Card className="w-full">
+            <CardHeader className="text-center">
+                <CardTitle className="text-2xl">Create a New Password</CardTitle>
+                <CardDescription>Choose a new, secure password for your account.</CardDescription>
+            </CardHeader>
+            <CardContent>
+            {message ? (
+                <div className="text-center text-green-600 dark:text-green-400 p-4 bg-green-50 dark:bg-green-900/20 rounded-md">
+                    <p>{message}</p>
+                    <Button asChild className="mt-4"><Link href="/login">Back to Login</Link></Button>
+                </div>
+            ) : (
+                <form onSubmit={onSubmit} className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="password">New Password</Label>
+                        <Input id="password" type="password" value={password} onChange={e=>setPassword(e.target.value)} required disabled={loading} />
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="confirm">Confirm New Password</Label>
+                        <Input id="confirm" type="password" value={confirm} onChange={e=>setConfirm(e.target.value)} required disabled={loading} />
+                    </div>
+                    {error && <p className="text-sm text-red-600">{error}</p>}
+                    <Button disabled={loading} className="w-full">
+                        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {loading ? 'Updating…' : 'Update Password'}
+                    </Button>
+                </form>
+            )}
+            </CardContent>
+        </Card>
     </div>
   );
 }
 
-function LoadingSpinner() {
-  return (
-    <div className="max-w-md mx-auto mt-16 bg-white dark:bg-gray-900 rounded-lg shadow p-6">
-      <div className="flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        <span className="ml-2 text-gray-600">Loading...</span>
-      </div>
-    </div>
-  );
-}
-
+// The main export uses Suspense to handle the useSearchParams hook correctly.
 export default function ResetPasswordPage() {
-  return (
-    <Suspense fallback={<LoadingSpinner />}>
-      <ResetPasswordForm />
-    </Suspense>
-  );
+    return (
+        <Suspense>
+            <ResetPasswordForm />
+        </Suspense>
+    );
 }

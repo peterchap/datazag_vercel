@@ -1,35 +1,33 @@
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { auth } from '@/lib/auth'; // Import the new auth function
 import { db } from '@/lib/drizzle';
-import { users } from '@/shared/schema';
 import { eq } from 'drizzle-orm';
+import { users } from '@/shared/schema';
 
 export async function GET() {
+  // Use the auth() function to get the session on the server
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+  }
+
   try {
-  const session: any = await getServerSession(authOptions as any);
-  const userId = session?.user?.id ? parseInt(String(session.user.id), 10) : NaN;
-    if (!session || Number.isNaN(userId)) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    const userId = parseInt(session.user.id, 10);
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const result = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-    const u: any = result[0];
-    if (!u) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    // Return the user data (without the password hash)
+    const { password, ...userData } = user;
+    return NextResponse.json(userData);
 
-    return NextResponse.json({
-      id: u.id,
-      firstName: u.firstName,
-      lastName: u.lastName,
-      email: u.email,
-      company: u.company,
-      credits: u.credits,
-      role: u.role,
-      canPurchaseCredits: u.canPurchaseCredits,
-      forcePasswordReset: Boolean(u.passwordResetToken),
-    });
   } catch (error) {
-    console.error('GET /api/me error:', error);
+    console.error('Error fetching user data:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

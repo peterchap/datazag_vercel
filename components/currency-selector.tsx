@@ -1,17 +1,19 @@
-import { useState, useEffect, createContext, useContext, ReactNode } from "react";
-import { useAutoFetch } from "@/hooks/use-auto-fetch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
-import { Globe } from "lucide-react";
+'use client';
+
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+// Define the shape of the context
+interface CurrencyContextType {
+  currency: { code: string; rate: number };
+  setCurrencyCode: (code: string) => void;
+  formatPrice: (amountInUsdCents: number) => string;
+}
+
+const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
 
 // Define the available currencies with their symbols and names
-const currencyDefinitions = [
+const SUPPORTED_CURRENCIES = [
   { code: "USD", symbol: "$", name: "US Dollar" },
   { code: "EUR", symbol: "€", name: "Euro" },
   { code: "GBP", symbol: "£", name: "British Pound" },
@@ -26,166 +28,76 @@ const currencyDefinitions = [
   { code: "NZD", symbol: "NZ$", name: "New Zealand Dollar" },
 ];
 
-// Create a type to hold the currency information
-export type CurrencyInfo = {
-  code: string;
-  symbol: string;
-  name: string;
-  rate: number;
-};
-
-// Default currency with rate=1 for USD
-const defaultCurrency: CurrencyInfo = {
-  code: "USD",
-  symbol: "$",
-  name: "US Dollar",
-  rate: 1
-};
-
-// Create context to share currency info throughout the app
-interface CurrencyContextType {
-  currency: CurrencyInfo;
-  setCurrency: (currency: CurrencyInfo) => void;
-  convertPrice: (priceInUSDCents: number) => number;
-  formatPrice: (priceInUSDCents: number) => string;
-  currencies: CurrencyInfo[];
-  isLoading: boolean;
-}
-
-const CurrencyContext = createContext<CurrencyContextType | undefined>(undefined);
-
 export function CurrencyProvider({ children }: { children: ReactNode }) {
-  // Fetch exchange rates from our API (poll occasionally to keep fresh)
-  const { data: exchangeRates, loading: isLoading } = useAutoFetch<Record<string, number>>(
-    "/api/exchange-rates",
-    {
-      intervalMs: 60 * 60 * 1000, // refresh hourly
-      initialData: {
-        USD: 1.0,
-        EUR: 0.93,
-        GBP: 0.79,
-        JPY: 155.0,
-        CAD: 1.36,
-        AUD: 1.52,
-        CHF: 0.91,
-        CNY: 7.23,
-        INR: 83.5,
-        SGD: 1.35,
-        ZAR: 18.61,
-        NZD: 1.64,
-      },
-    }
-  );
-  // Convert the currency definitions to include exchange rates
-  const currencies: CurrencyInfo[] = currencyDefinitions.map(currency => {
-    const rate = currency.code === "USD" 
-      ? 1 
-      : (exchangeRates && exchangeRates[currency.code] ? exchangeRates[currency.code] : 1);
-    
-    return {
-      ...currency,
-      rate
-    };
-  });
+  const [rates, setRates] = useState<{ [key: string]: number }>({ USD: 1.0 });
+  const [currencyCode, setCurrencyCodeState] = useState('USD');
 
-  // Get user's local currency based on browser locale
-  const getLocalCurrency = (): CurrencyInfo => {
-    try {
-      const locale = navigator.language;
-      const currencyCode = new Intl.NumberFormat(locale)
-        .resolvedOptions().locale.split('-')[1] || 'USD';
-      
-      const found = currencyDefinitions.find((c) => c.code === currencyCode);
-      return found ? { 
-        ...found, 
-        rate: exchangeRates?.[found.code] || 1 
-      } : defaultCurrency;
-    } catch {
-      return defaultCurrency;
-    }
-  };
-
-  const [currency, setCurrencyState] = useState<CurrencyInfo>(() => {
-    // Try to get the currency from localStorage (only on client side)
-    if (typeof window !== 'undefined') {
-      const savedCurrency = localStorage.getItem('selectedCurrency');
-      if (savedCurrency) {
-        try {
-          const parsed = JSON.parse(savedCurrency);
-          // Find the currency in our list to get updated rates
-          const current = currencies.find(c => c.code === parsed.code);
-          return current || getLocalCurrency();
-        } catch {
-          return getLocalCurrency();
-        }
-      }
-    }
-    return getLocalCurrency();
-  });
-
-  // Update currency rate when exchange rates load
+  // Fetch exchange rates when the app loads
   useEffect(() => {
-    if (!isLoading && exchangeRates) {
-      setCurrencyState(prev => {
-        // Keep the same currency but update the rate
-        const updatedRate = prev.code === "USD" ? 1 : (exchangeRates[prev.code] || 1);
-        return { ...prev, rate: updatedRate };
-      });
+    const fetchRates = async () => {
+      try {
+        const response = await fetch('/api/exchange-rates');
+        const data = await response.json();
+        if (data.success) {
+          setRates(data.rates);
+        } else {
+          console.error("API failed to provide exchange rates:", data.error);
+        }
+      } catch (error) {
+        console.error("Failed to fetch currency rates:", error);
+      }
+    };
+    fetchRates();
+
+    const savedCurrency = localStorage.getItem('selectedCurrency');
+    if (savedCurrency) {
+      setCurrencyCodeState(savedCurrency);
     }
-  }, [exchangeRates, isLoading]);
+  }, []);
 
-  const setCurrency = (newCurrency: CurrencyInfo) => {
-    // Make sure we use the latest exchange rate
-    const rate = newCurrency.code === "USD" 
-      ? 1 
-      : (exchangeRates && exchangeRates[newCurrency.code] 
-          ? exchangeRates[newCurrency.code] 
-          : newCurrency.rate);
-    
-    setCurrencyState({ ...newCurrency, rate });
-    // Save to localStorage (only on client side)
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('selectedCurrency', JSON.stringify({ ...newCurrency, rate }));
-      // Force a re-render of components that display prices
-      window.dispatchEvent(new Event('currency-changed'));
+  const setCurrencyCode = (code: string) => {
+    // This new log will help us debug what value the Select component is passing.
+    console.log("Setting currency code to:", code, "(Type:", typeof code, ")");
+    setCurrencyCodeState(code);
+    localStorage.setItem('selectedCurrency', code);
+  };
+
+  const formatPrice = useCallback((amountInUsdCents: number) => {
+    const rate = rates[currencyCode] || 1;
+    const amountInUsd = amountInUsdCents / 100;
+    const convertedAmount = amountInUsd * rate;
+
+    try {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: currencyCode,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(convertedAmount);
+    } catch (error) {
+        console.warn(`Failed to format currency for code: ${currencyCode}. Falling back to USD.`);
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+        }).format(amountInUsd);
     }
-  };
+  }, [currencyCode, rates]);
 
-  // Convert a price in USD cents to the selected currency
-  const convertPrice = (priceInUSDCents: number): number => {
-    const priceInUSD = priceInUSDCents / 100;
-    const converted = priceInUSD * currency.rate;
-    // Round to 2 decimal places for most currencies
-    return Math.round(converted * 100);
-  };
-
-  // Format a price in the selected currency
-  const formatPrice = (priceInUSDCents: number): string => {
-    const converted = convertPrice(priceInUSDCents);
-    // Format nicely with the proper currency symbol
-    return `${currency.symbol}${(converted / 100).toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    })}`;
-  };
-
-  const value = {
-    currency,
-    setCurrency,
-    convertPrice,
+  // By wrapping the context value in useMemo, we ensure consuming components
+  // only re-render when a value they depend on has actually changed. This is the fix.
+  const value = useMemo(() => ({
+    currency: { code: currencyCode, rate: rates[currencyCode] || 1 },
+    setCurrencyCode,
     formatPrice,
-    currencies,
-    isLoading
-  };
+  }), [currencyCode, rates, formatPrice, setCurrencyCode]);
 
-  return (
-    <CurrencyContext.Provider value={value}>
-      {children}
-    </CurrencyContext.Provider>
-  );
+
+  return <CurrencyContext.Provider value={value}>{children}</CurrencyContext.Provider>;
 }
 
-// Custom hook to use the currency context
+// Custom hook to easily access the currency context
 export function useCurrency() {
   const context = useContext(CurrencyContext);
   if (context === undefined) {
@@ -194,44 +106,22 @@ export function useCurrency() {
   return context;
 }
 
-interface CurrencySelectorProps {
-  className?: string;
-}
-
-export function CurrencySelector({ className }: CurrencySelectorProps) {
-  const { currency, setCurrency, currencies, isLoading } = useCurrency();
-  const { toast } = useToast();
-
-  const handleCurrencyChange = (value: string) => {
-    const newCurrency = currencies.find(c => c.code === value);
-    if (newCurrency) {
-      setCurrency(newCurrency);
-      toast({
-        title: "Currency changed",
-        description: `Prices will now be displayed in ${newCurrency.name} (${newCurrency.code})`,
-      });
-    }
-  };
+// This is the UI component for the dropdown selector
+export function CurrencySelector() {
+  const { currency, setCurrencyCode } = useCurrency();
 
   return (
-    <div className={`flex items-center gap-2 ${className}`}>
-      <Globe className="h-4 w-4 text-muted-foreground" />
-      <Select
-        value={currency.code}
-        onValueChange={handleCurrencyChange}
-        disabled={isLoading}
-      >
-        <SelectTrigger className="w-[130px]">
-          <SelectValue placeholder="Currency" />
-        </SelectTrigger>
-        <SelectContent>
-          {currencies.map(c => (
-            <SelectItem key={c.code} value={c.code}>
-              {c.symbol} {c.code} - {c.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+    <Select value={currency.code} onValueChange={setCurrencyCode}>
+      <SelectTrigger className="w-full">
+        <SelectValue placeholder="Select currency" />
+      </SelectTrigger>
+      <SelectContent>
+        {SUPPORTED_CURRENCIES.map((c) => (
+          <SelectItem key={c.code} value={c.code}>
+            {c.code} - {c.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

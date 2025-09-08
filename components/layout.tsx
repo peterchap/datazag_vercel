@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useState } from "react";
-import Sidebar from "@/components/sidebar";
+import { Sidebar } from "@/components/shared/sidebar";
 import MobileNav from "@/components/MobileNav";
 import { useAuth } from "@/hooks/use-auth";
 import { usePathname, useRouter } from "next/navigation";

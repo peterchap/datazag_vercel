@@ -1,39 +1,31 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { pool } from '@/lib/drizzle';
-import { stripe } from '@/lib/stripe';
-
-interface SessionUser {
-  id: string;
-  email?: string | null;
-  role?: string;
-  credits?: number;
-  company?: string | null;
-}
+import { NextResponse, type NextRequest } from 'next/server';
+import { auth } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  const user = session?.user as SessionUser | undefined;
-  if (!user?.id) {
+  const session = await auth();
+  if (!session?.user?.id || !session.jwt) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const client = await pool.connect();
   try {
-    const origin = new URL(req.url).origin;
-    const { rows } = await client.query('SELECT stripe_customer_id FROM users WHERE id = $1', [user.id]);
-    const customerId = rows[0]?.stripe_customer_id;
-    if (!customerId) return NextResponse.json({ error: 'No Stripe customer' }, { status: 400 });
+    const gatewayUrl = process.env.API_GATEWAY_URL || 'http://localhost:3000';
 
-    const portal = await stripe.billingPortal.sessions.create({
-      customer: customerId,
-      return_url: `${origin}/billing`,
+    const gatewayResponse = await fetch(`${gatewayUrl}/api/stripe/portal`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.jwt}`,
+      },
     });
-    return NextResponse.json({ url: portal.url });
-  } catch (e: any) {
-    return NextResponse.json({ error: 'Stripe error', details: e?.message }, { status: 500 });
-  } finally {
-    client.release();
+
+    const responseBody = await gatewayResponse.json();
+    if (!gatewayResponse.ok) {
+      return NextResponse.json(responseBody, { status: gatewayResponse.status });
+    }
+    return NextResponse.json(responseBody);
+
+  } catch (error) {
+    console.error('Error proxying portal session request:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

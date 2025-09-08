@@ -1,48 +1,45 @@
-import { NextResponse } from 'next/server'
+import { NextResponse } from 'next/server';
 
-const DEFAULT_RATES: Record<string, number> = {
-  USD: 1.0,
-  EUR: 0.93,
-  GBP: 0.79,
-  JPY: 155.0,
-  CAD: 1.36,
-  AUD: 1.52,
-  CHF: 0.91,
-  CNY: 7.23,
-  INR: 83.5,
-  SGD: 1.35,
-  ZAR: 18.61,
-  NZD: 1.64,
-};
-
+// This is a Route Handler that runs on the server.
 export async function GET() {
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 3500);
-    const res = await fetch('https://api.exchangerate.host/latest?base=USD', { signal: controller.signal });
-    clearTimeout(timeout);
+    // We add { cache: 'no-store' } to ensure this fetch is always live
+    // and not cached by the Next.js Data Cache.
+    const response = await fetch('https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml', {
+      cache: 'no-store' 
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch exchange rates from ECB.');
+    }
+    const xmlText = await response.text();
 
-    if (!res.ok) {
-      return NextResponse.json(DEFAULT_RATES, {
-        headers: { 'Cache-Control': 'no-cache' },
-      });
+    // --- Simple XML Parsing ---
+    const rates: { [key: string]: number } = { EUR: 1.0 };
+    const lines = xmlText.split('\n');
+    lines.forEach(line => {
+      const match = line.match(/currency='(\w+)' rate='([\d.]+)'/);
+      if (match) {
+        rates[match[1]] = parseFloat(match[2]);
+      }
+    });
+    // --- End Parsing ---
+
+    // Convert all rates to be relative to USD for easier use
+    const usdRate = rates['USD'];
+    if (!usdRate) {
+      throw new Error('USD rate not found in ECB data.');
     }
 
-    const data = await res.json();
-    const src: Record<string, number> = data?.rates ?? {};
-    const desired = Object.keys(DEFAULT_RATES);
-    const rates = desired.reduce<Record<string, number>>((acc, code) => {
-      acc[code] = typeof src[code] === 'number' ? src[code] : DEFAULT_RATES[code];
-      return acc;
-    }, {});
+    const ratesVsUsd: { [key:string]: number } = {};
+    for (const currency in rates) {
+      ratesVsUsd[currency] = rates[currency] / usdRate;
+    }
+    
+    return NextResponse.json({ success: true, rates: ratesVsUsd });
 
-    return NextResponse.json(rates, {
-      headers: { 'Cache-Control': 's-maxage=3600, stale-while-revalidate=600' },
-    });
-  } catch {
-    // Network error or timeout: return stable defaults to avoid 500s
-    return NextResponse.json(DEFAULT_RATES, {
-      headers: { 'Cache-Control': 'no-cache' },
-    });
+  } catch (error) {
+    console.error('Exchange rate API error:', error);
+    return NextResponse.json({ success: false, error: 'Could not fetch exchange rates.' }, { status: 500 });
   }
 }

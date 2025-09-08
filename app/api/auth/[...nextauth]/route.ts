@@ -1,8 +1,8 @@
-export const runtime = 'nodejs';
+import { handlers } from "@/lib/auth";
 
-import NextAuth from 'next-auth'
-import { authOptions } from '@/lib/auth'
+if (!handlers || !handlers.GET || !handlers.POST) {
+  throw new Error("handlers object with GET and POST is required from '@/lib/auth'");
+}
 
-const handler = NextAuth(authOptions)
+export const { GET, POST } = handlers;
 
-export { handler as GET, handler as POST }
