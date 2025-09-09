@@ -8,6 +8,13 @@
       "when": 1756290134245,
       "tag": "0000_living_molly_hayes",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1757427819877,
+      "tag": "0001_parallel_swordsman",
+      "breakpoints": true
     }
   ]
 }

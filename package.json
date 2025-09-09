@@ -10,6 +10,8 @@
     "lint": "next lint",
     "analyze": "ANALYZE=true next build",
     "db:push": "drizzle-kit push",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
     "db:check": "tsx scripts/check-db.ts",
     "seed:test-users": "tsx scripts/seed-test-users.ts",
     "seed:test-data": "tsx scripts/seed-test-data.ts"
