@@ -120,7 +120,7 @@ cookies*.txt
 test_cookies.txt
 
 # Uploaded files
-uploads/
+#uploads/
 
 # Generated files
 generated-icon.png

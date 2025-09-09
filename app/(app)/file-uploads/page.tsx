@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { fetchUserUploadHistory } from "@/lib/jobs-server-data";
-import { FileUploadClient } from "@/components/uploads/uploads-client";
+import { FileUploadClient } from "@/components/uploads/uploads-client"
 
 // This is the async Server Page for your file uploads.
 export default async function FileUploadsPage() {
