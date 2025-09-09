@@ -51,7 +51,7 @@ export function DashboardClient({ initialUserData, initialTransactions }: { init
         <div></div>
         <div className="mt-4 md:mt-0 flex space-x-3">
           <Button className="border border-input bg-transparent hover:bg-accent hover:text-accent-foreground" asChild>
-            <Link href="/documentation" className="flex items-center">
+            <Link href="/api-documentation" className="flex items-center">
               <FileText className="mr-2 h-4 w-4" /> View API Docs
             </Link>
           </Button>
