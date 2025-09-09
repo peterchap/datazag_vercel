@@ -14,7 +14,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 
 // This interface defines the shape of a credit bundle object
-interface CreditBundle {
+export interface CreditBundle {
   id: number;
   name: string;
   description: string;

@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { USER_ROLES } from "@/shared/schema";
-import { fetchAllTransactions, fetchAllUsersForFilter } from "@/lib/admin-server-data";
+import { fetchAllTransactions, fetchAllUsersForFilter, fetchAllCompaniesForFilter } from "@/lib/admin-server-data";
 import { TransactionsClient } from "@/components/admin/transactions/transactions-client";
 
 // This is the async Server Page for the admin transactions list.
@@ -12,18 +12,29 @@ export default async function AdminTransactionsPage() {
     redirect("/login");
   }
 
-  // Fetch the initial data in parallel for the best performance
-  const [initialTransactions, users] = await Promise.all([
+  // Fetch all initial data in parallel for the best performance
+  const [initialTransactions, users, companies] = await Promise.all([
     fetchAllTransactions(),
-    fetchAllUsersForFilter()
+    fetchAllUsersForFilter(),
+    fetchAllCompaniesForFilter(), // Fetch the list of companies
   ]);
 
-  // Format the user list for the Combobox component
+  // Format the data for the filter components
   const usersForFilter = users.map(user => ({
     value: user.id.toString(),
     label: user.email,
   }));
+  const companiesForFilter = companies.map(company => ({
+    value: company,
+    label: company,
+  }));
 
-  // Render the client component, passing the initial data as props
-  return <TransactionsClient initialTransactions={initialTransactions} usersForFilter={usersForFilter} />;
+  // Render the client component, passing all the initial data as props
+  return (
+    <TransactionsClient 
+        initialTransactions={initialTransactions} 
+        usersForFilter={usersForFilter}
+        companiesForFilter={companiesForFilter} // Pass the new data as a prop
+    />
+  );
 }

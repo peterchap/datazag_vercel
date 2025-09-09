@@ -7,7 +7,7 @@ import { USER_ROLES } from "@/shared/schema";
 import { UserDetailClient } from "@/components/admin/users/user-detail-client";
 import { notFound } from "next/navigation";
 
-// This server function fetches ALL data related to a single user in parallel.
+// This server function remains the same.
 async function getUserDetails(userId: number) {
   try {
     const [userData, userApiKeys, userTransactions, userApiUsage] = await Promise.all([
@@ -24,29 +24,34 @@ async function getUserDetails(userId: number) {
   }
 }
 
-// This is the new async Server Page for the dynamic user detail route.
-export default async function UserDetailPage({ params }: { params: { id: string } }) {
+// --- This is the fix ---
+// The page now correctly handles the params object as a Promise, which is what
+// the build-time type checker is expecting for this specific route.
+type PageProps = {
+  params: Promise<{ id: string }>;
+};
+
+export default async function UserDetailPage({ params: paramsPromise }: PageProps) {
   const session = await auth();
   
-  // Server-side protection
   if (!session?.user || (session.user.role !== USER_ROLES.BUSINESS_ADMIN && session.user.role !== USER_ROLES.CLIENT_ADMIN)) {
     redirect("/login");
   }
 
+  // We now 'await' the promise to get the actual params object.
+  const params = await paramsPromise;
+
   const userId = parseInt(params.id, 10);
   if (isNaN(userId)) {
-    notFound(); // If the ID is not a valid number, show a 404 page.
+    notFound();
   }
 
-  // 1. Fetch all the data for this user from the server.
   const { userData, userApiKeys, userTransactions, userApiUsage } = await getUserDetails(userId);
 
-  // If the user doesn't exist, show a 404 page.
   if (!userData) {
     notFound();
   }
 
-  // 2. Render the client component, passing all the fetched data as props.
   return (
     <UserDetailClient
       user={userData}

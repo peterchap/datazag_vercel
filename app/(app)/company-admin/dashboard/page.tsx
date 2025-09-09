@@ -8,8 +8,11 @@ import { fetchCompanyUsers } from "@/lib/client-admin-server-data";
 export default async function CompanyAdminDashboardPage() {
   const session = await auth();
   
-  if (!session?.user || (session.user.role !== USER_ROLES.CLIENT_ADMIN)) {
-    // Redirect if not a client admin
+  if (
+    !session?.user || 
+    (session.user.role !== USER_ROLES.CLIENT_ADMIN) || 
+    !session.jwt
+  ) {
     redirect("/dashboard"); 
   }
 

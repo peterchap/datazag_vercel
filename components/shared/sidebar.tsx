@@ -38,8 +38,8 @@ export async function Sidebar() {
     { href: "/api-keys", iconName: "Key" as const, label: "API Keys" },
     { href: "/billing", iconName: "CreditCard" as const, label: "Billing" },
     { href: "/file-uploads", iconName: "FileUp" as const, label: "File Uploads" },
-    { href: "/requests", iconName: "MessageSquare" as const, label: "My Requests" },
-    { href: "/analytics", iconName: "BarChart2" as const, label: "Analytics" },
+    { href: "/customer-requests", iconName: "MessageSquare" as const, label: "My Requests" },
+    { href: "/api-documentation", iconName: "BarChart2" as const, label: "API Documentation" },
     { href: "/settings", iconName: "Settings" as const, label: "Settings" },
   ];
 

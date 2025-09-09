@@ -174,13 +174,20 @@ export async function fetchAllTransactions() {
     const allTransactions = await db.select({
         transaction: transactions,
         userEmail: users.email,
+        // This is the fix: We now also select the company from the users table.
+        company: users.company,
       })
       .from(transactions)
       .leftJoin(users, eq(transactions.userId, users.id))
       .orderBy(desc(transactions.createdAt))
-      .limit(200); // Fetch a reasonable number for the initial load
+      .limit(200);
 
-    return allTransactions.map(item => ({ ...item.transaction, userEmail: item.userEmail }));
+    // The returned object now includes the company, satisfying the client component's type.
+    return allTransactions.map(item => ({ 
+        ...item.transaction, 
+        userEmail: item.userEmail, 
+        company: item.company 
+    }));
   } catch (error) {
     console.error("Error fetching all transactions:", error);
     return [];

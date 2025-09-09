@@ -1,13 +1,15 @@
-// app/api/auth/verify-email/[token]/route.ts
 import { NextResponse, type NextRequest } from 'next/server';
 
-// This is the new API route that the email verification link will call.
+// The function signature is updated to correctly handle the params promise.
 export async function GET(
   req: NextRequest,
-  { params }: { params: { token: string } }
+  context: { params: Promise<{ token: string }> }
 ) {
   try {
+    // We now correctly await the promise to get the params object.
+    const params = await context.params;
     const { token } = params;
+    
     const gatewayUrl = process.env.API_GATEWAY_URL || 'http://localhost:3000';
     const appBaseUrl = process.env.APP_BASE_URL || 'http://localhost:3001';
 

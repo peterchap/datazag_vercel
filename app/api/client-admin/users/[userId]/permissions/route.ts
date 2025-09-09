@@ -1,10 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@/lib/auth';
 
-// This is the proxy route for PATCH /api/client-admin/users/:userId/permissions
+// The function signature is updated to correctly handle the params promise.
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { userId: string } }
+  context: { params: Promise<{ userId: string }> }
 ) {
   const session = await auth();
   if (!session?.user?.id || !session.jwt) {
@@ -12,7 +12,10 @@ export async function PATCH(
   }
 
   try {
+    // We now correctly await the promise to get the params object.
+    const params = await context.params;
     const { userId } = params;
+    
     const body = await req.json();
     const gatewayUrl = process.env.API_GATEWAY_URL || 'http://localhost:3000';
 

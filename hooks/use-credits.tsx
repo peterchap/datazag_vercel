@@ -7,27 +7,6 @@ import type { CreditBundle } from "@/components/credit-bundles"; // Assuming you
 import type { Transaction } from "@/shared/schema"; // Assuming a shared transaction type
 
 
-interface CreditBundle {
-  id: number;
-  name: string;
-  description: string;
-  credits: number;
-  price: number;
-  popular: boolean;
-}
-
-interface Transaction {
-  id: number;
-  userId: number;
-  type: string;
-  amount: number;
-  description: string;
-  apiKeyId: number | null;
-  status: string;
-  metadata: any;
-  createdAt: string;
-}
-
 export function useCredits() {
   const { toast } = useToast();
   const { currency } = useCurrency();

@@ -16,13 +16,18 @@ export async function GET(request: Request) {
     const userId = searchParams.get('userId');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
-    const companies = searchParams.getAll('company'); // Can accept multiple company names
+    const companies = searchParams.getAll('company');
 
     // Build the query dynamically based on filters
     const conditions = [];
     if (userId) conditions.push(eq(transactions.userId, parseInt(userId, 10)));
-    if (startDate) conditions.push(gte(transactions.createdAt, new Date(startDate)));
-    if (endDate) conditions.push(lte(transactions.createdAt, new Date(endDate)));
+    
+    // --- THIS IS THE FIX ---
+    // We now pass the ISO date string directly, which matches the database column's type.
+    if (startDate) conditions.push(gte(transactions.createdAt, startDate));
+    if (endDate) conditions.push(lte(transactions.createdAt, endDate));
+    // --- END OF FIX ---
+    
     if (companies.length > 0) conditions.push(inArray(users.company, companies));
 
     const filteredTransactions = await db.select({

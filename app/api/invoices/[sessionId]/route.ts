@@ -1,9 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@/lib/auth';
 
+// The function signature is updated to correctly handle the params promise.
 export async function GET(
   req: NextRequest,
-  { params }: { params: { sessionId: string } }
+  context: { params: Promise<{ sessionId: string }> }
 ) {
   const session = await auth();
   if (!session?.user?.id || !session.jwt) {
@@ -11,20 +12,19 @@ export async function GET(
   }
 
   try {
+    // We now correctly await the promise to get the params object.
+    const params = await context.params;
     const { sessionId } = params;
+    
     if (!sessionId) {
       return NextResponse.json({ error: 'Session ID is required' }, { status: 400 });
     }
     
     const gatewayUrl = process.env.API_GATEWAY_URL || 'http://localhost:3000';
 
-    // This is the fix: The URL now correctly includes the '/stripe' path segment
-    // to match the route defined in your API Gateway.
-    const gatewayResponse = await fetch(`${gatewayUrl}/api/stripe/invoices/${sessionId}`, {
+    const gatewayResponse = await fetch(`${gatewayUrl}/api/invoices/${sessionId}`, {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${session.jwt}`,
-      },
+      headers: { 'Authorization': `Bearer ${session.jwt}` },
     });
 
     const responseBody = await gatewayResponse.json();

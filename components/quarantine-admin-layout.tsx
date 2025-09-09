@@ -64,7 +64,7 @@ export default function AdminLayout({
             <div className="mb-6">
               <h3 className="text-webflow-heading font-semibold text-xl mb-2">Admin Portal</h3>
               <p className="text-webflow-accent text-sm">
-                {user?.username ? `Logged in as ${user.username}` : 'Admin Controls'}
+                {user?.firstName ? `Logged in as ${user.firstName}` : 'Admin Controls'}
               </p>
             </div>
             

@@ -18,7 +18,10 @@ import type { User } from "@/shared/schema";
 
 // This component receives the server-fetched data as props
 export function DashboardClient({ initialUserData, initialTransactions }: { initialUserData: User | null, initialTransactions: any[] }) {
-  const { activeApiKeys } = useApiKeys();
+  // 1. We now get the full `apiKeys` array from the hook.
+  const { apiKeys } = useApiKeys();
+  // 2. We can now calculate the active key count directly in the component.
+  const activeKeyCount = Array.isArray(apiKeys) ? apiKeys.filter(key => key.active).length : 0;
 
   // Use server data for the initial state
   const [user, setUser] = useState(initialUserData);
@@ -88,19 +91,11 @@ export function DashboardClient({ initialUserData, initialTransactions }: { init
         />
         <StatCard
           title="Active API Keys"
-          value={formatNumber(activeApiKeys?.length || 0)}
+          value={formatNumber(activeKeyCount)}
           icon={<Key className="h-6 w-6" />}
           linkHref="/api-keys"
           iconBgColor="bg-green-100"
           iconColor="text-green-600"
-        />
-        <StatCard
-          title="Quick Buy"
-          value="Credits"
-          icon={<CreditCard className="h-6 w-6" />}
-          linkHref="/credits"
-          iconBgColor="bg-purple-100"
-          iconColor="text-purple-600"
         />
       </div>
 
