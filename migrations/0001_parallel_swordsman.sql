@@ -17,7 +17,7 @@ CREATE TABLE "request_comments" (
 	"comment" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
---> statement-breakpoint
+--> statement-breakpoint new-line
 CREATE TABLE "upload_jobs" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"user_id" integer NOT NULL,
