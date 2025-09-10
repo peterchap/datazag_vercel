@@ -1,9 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/drizzle';
-import { users } from '@/shared/schema';
+import { users, apiKeys } from '@/shared/schema';
 import { eq } from 'drizzle-orm';
 import { USER_ROLES } from '@/shared/schema';
+import { redisSyncService } from '@/lib/redis-sync-client';
 
 /**
  * GET handler to fetch a single user's details for the admin panel.
@@ -59,25 +60,33 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
-
   if (!session?.user || (session.user.role !== USER_ROLES.BUSINESS_ADMIN)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
     const params = await context.params;
-    const userId = parseInt(params.id, 10);
-
-    if (session.user.id === params.id) {
-        return NextResponse.json({ error: 'Admins cannot delete their own account.' }, { status: 400 });
+    const userIdToDelete = parseInt(params.id, 10);
+    
+    if (parseInt(session.user.id!, 10) === userIdToDelete) {
+      return NextResponse.json({ error: "For security, admins cannot delete their own account." }, { status: 400 });
     }
 
-    await db.delete(users).where(eq(users.id, userId));
+    const userApiKeys = await db.query.apiKeys.findMany({
+      where: eq(apiKeys.userId, userIdToDelete),
+    });
 
-    return NextResponse.json({ success: true, message: 'User deleted successfully.' });
+    const redisDeletionPromises = userApiKeys.map(key => 
+      redisSyncService.deleteApiKey(key.key)
+    );
+    await Promise.all(redisDeletionPromises);
+    
+    await db.delete(users).where(eq(users.id, userIdToDelete));
 
-    } catch (error) {
-      console.error('Error deleting user:', error);
-      return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
-    }
+    return NextResponse.json({ success: true, message: 'User and all associated data deleted successfully.' });
+
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
+}

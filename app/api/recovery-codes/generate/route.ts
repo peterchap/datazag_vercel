@@ -1,31 +1,33 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@/lib/auth';
+import { db } from '@/lib/drizzle';
+import { users } from '@/shared/schema';
+import { eq } from 'drizzle-orm';
+import { randomBytes } from 'crypto';
+import bcrypt from 'bcryptjs';
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session?.user?.id || !session.jwt) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
   try {
-    const gatewayUrl = process.env.API_GATEWAY_URL || 'http://localhost:3000';
+    const plainTextCodes = Array.from({ length: 10 }, () => 
+      `${randomBytes(2).toString('hex').toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`
+    );
 
-    const gatewayResponse = await fetch(`${gatewayUrl}/api/recovery-codes/generate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.jwt}`,
-      },
-    });
-
-    const responseBody = await gatewayResponse.json();
-    if (!gatewayResponse.ok) {
-      return NextResponse.json(responseBody, { status: gatewayResponse.status });
-    }
+    const hashedCodes = await Promise.all(
+      plainTextCodes.map(code => bcrypt.hash(code, 10))
+    );
     
-    return NextResponse.json(responseBody);
-
+    await db.update(users)
+      .set({ recoveryCodes: JSON.stringify(hashedCodes) })
+      .where(eq(users.id, parseInt(session.user.id, 10)));
+    
+    return NextResponse.json({ codes: plainTextCodes });
   } catch (error) {
-    console.error('Error proxying recovery code generation:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    console.error('Error generating recovery codes:', error);
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

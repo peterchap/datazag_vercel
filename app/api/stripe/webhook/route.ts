@@ -1,78 +1,75 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { stripe } from '@/lib/stripe';
-import { pool } from '@/lib/drizzle';
+import { NextResponse, type NextRequest } from 'next/server';
+import { db } from '@/lib/drizzle';
+import { userSubscriptions } from '@/shared/schema'; // Assuming a subscriptions table
+import { eq } from 'drizzle-orm';
+import Stripe from 'stripe';
 
-export const dynamic = 'force-dynamic'; // ensure no caching
+const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
+// This should be a different secret from your credits webhook for security
+const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET_SUBSCRIPTIONS;
 
 export async function POST(req: NextRequest) {
-  // Use the request's own headers to avoid async headers() helper typing (Promise) in Next 15.
-  const sig = req.headers.get('stripe-signature');
-  if (!sig) {
-    return NextResponse.json({ error: 'Missing stripe-signature header' }, { status: 400 });
-  }
-  const buf = await req.text();
-
-  let event;
-  try {
-  event = stripe.webhooks.constructEvent(buf, sig, process.env.STRIPE_WEBHOOK_SECRET!);
-  } catch (err: any) {
-    console.error('Webhook signature verification failed', err?.message);
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
+  if (!stripe || !webhookSecret) {
+    return NextResponse.json({ error: 'Stripe is not configured.' }, { status: 500 });
   }
 
   try {
+    const rawBody = await req.text();
+    const signature = req.headers.get('stripe-signature') as string;
+    const event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
+
+    const session = event.data.object as Stripe.Subscription & {
+      current_period_start: number;
+      current_period_end: number;
+    };
+
+    // Handle different subscription events
     switch (event.type) {
-      case 'checkout.session.completed': {
-        const s = event.data.object as any;
-        const userId = s.metadata?.userId || s.subscription_metadata?.userId;
-        if (userId && s.subscription) {
-          await upsertSubscription(String(userId), String(s.subscription));
-        }
-        break;
-      }
       case 'customer.subscription.created':
+        // --- THIS IS THE FIX ---
+        // We now validate the metadata before using it.
+        const userId = Number(session.metadata?.userId);
+        if (!userId || isNaN(userId)) {
+          console.error(`[Webhook Error] Subscription created event is missing a valid userId in metadata. Session ID: ${session.id}`);
+          // We break here to prevent a crash, but in production, you might want to
+          // send an alert to your development team.
+          break; 
+        }
+        // --- END OF FIX ---
+        
+        await db.insert(userSubscriptions).values({
+          userId: userId,
+          planId: Number(session.items?.data[0]?.plan?.metadata?.planId ?? 0),
+          stripeSubscriptionId: session.id,
+          status: session.status,
+          currentPeriodStart: new Date(session.current_period_start * 1000).toISOString(),
+          currentPeriodEnd: new Date(session.current_period_end * 1000).toISOString(),
+          interval: session.items?.data[0]?.plan?.interval ?? 'month',
+          cancelAtPeriodEnd: session.cancel_at_period_end,
+        });
+        break;
       case 'customer.subscription.updated':
-      case 'customer.subscription.deleted': {
-        const sub = event.data.object as any;
-        const userId = sub.metadata?.userId;
-        if (userId) await syncSubscription(String(userId), sub);
+         await db.update(userSubscriptions)
+            .set({ 
+                status: session.status, 
+                cancelAtPeriodEnd: session.cancel_at_period_end,
+                currentPeriodStart: new Date(session.current_period_start * 1000).toISOString(),
+                currentPeriodEnd: new Date(session.current_period_end * 1000).toISOString(),
+            })
+            .where(eq(userSubscriptions.stripeSubscriptionId, session.id));
         break;
-      }
+      case 'customer.subscription.deleted':
+         await db.update(userSubscriptions)
+            .set({ status: 'canceled' })
+            .where(eq(userSubscriptions.stripeSubscriptionId, session.id));
+        break;
       default:
-        break;
+        console.log(`Unhandled Stripe event type: ${event.type}`);
     }
-  } catch (e) {
-    console.error('Webhook handling error', e);
-  }
 
-  return NextResponse.json({ received: true }, { status: 200 });
-}
-
-async function upsertSubscription(userId: string, subscriptionId: string) {
-  const sub = await stripe.subscriptions.retrieve(subscriptionId);
-  await syncSubscription(userId, sub);
-}
-
-async function syncSubscription(userId: string, sub: any) {
-  const client = await pool.connect();
-  try {
-    await client.query(
-      `UPDATE users
-       SET stripe_subscription_id = $1,
-           subscription_status = $2,
-           subscription_price_id = $3,
-           subscription_current_period_end = to_timestamp($4),
-           updated_at = NOW()
-       WHERE id = $5`,
-      [
-        sub.id,
-        sub.status,
-        sub.items?.data?.[0]?.price?.id ?? null,
-        sub.current_period_end ?? null,
-        userId,
-      ]
-    );
-  } finally {
-    client.release();
+    return NextResponse.json({ received: true });
+  } catch (err: any) {
+    console.error('Stripe webhook error:', err);
+    return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
   }
 }

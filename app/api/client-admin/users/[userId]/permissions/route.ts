@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@/lib/auth';
+import { USER_ROLES } from '@/shared/schema';
 
 // The function signature is updated to correctly handle the params promise.
 export async function PATCH(
@@ -40,3 +41,4 @@ export async function PATCH(
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
+

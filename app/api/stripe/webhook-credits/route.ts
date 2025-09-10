@@ -1,73 +1,70 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { stripe } from '@/lib/stripe';
+import { NextResponse, type NextRequest } from 'next/server';
 import { db } from '@/lib/drizzle';
-import { users, transactions, creditBundles } from '@/shared/schema';
-import { eq } from 'drizzle-orm';
+import { users, transactions } from '@/shared/schema';
+import { eq, sql } from 'drizzle-orm';
+import Stripe from 'stripe';
+import { Resend } from 'resend';
+import { redisSyncService } from '@/lib/redis-sync-client';
 
-// Removed unnecessary top-level import; dynamic import is used inside the POST handler.
+const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET_CREDITS;
 
-export const dynamic = 'force-dynamic';
-
+// This is the final, unified webhook handler for one-time credit purchases.
 export async function POST(req: NextRequest) {
-  console.log('Stripe webhook received');
-  // Removed unused and incorrect import of redisSyncService.
-  const sig = req.headers.get('stripe-signature');
-  if (!sig) return NextResponse.json({ error: 'Missing signature' }, { status: 400 });
-  const body = await req.text();
-  let event: any;
-  try {
-    event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET_CREDITS as string);
-    console.log('Stripe event type:', event.type);
-  } catch (e: any) {
-    return NextResponse.json({ error: 'Invalid signature', details: e?.message }, { status: 400 });
+  if (!stripe || !webhookSecret) {
+    return NextResponse.json({ error: 'Stripe is not configured.' }, { status: 500 });
   }
 
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object as any;
-    const bundleId = parseInt(session.metadata?.bundleId || '0', 10);
-    const userId = parseInt(session.metadata?.userId || '0', 10);
-    if (bundleId && userId) {
-      const [bundle] = await db.select().from(creditBundles).where(eq(creditBundles.id, bundleId)).limit(1);
-      const [u] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
-      if (bundle && u) {
-        const newCredits = (u.credits ?? 0) + (bundle.credits ?? 0);
-        const updateResult = await db.update(users).set({ credits: newCredits }).where(eq(users.id, userId));
-        console.log('DB update credits result:', updateResult);
-        console.log('Attempting to insert transaction:', {
-          userId,
-          type: 'purchase',
-          amount: bundle.credits,
-          description: `Stripe Checkout ${session.id} - ${bundle.name}`,
-          apiKeyId: null,
-          status: 'success',
-          metadata: { provider: 'stripe', sessionId: session.id, bundleId: bundle.id, price: bundle.price },
+  try {
+    const rawBody = await req.text();
+    const signature = req.headers.get('stripe-signature') as string;
+
+    // 1. Verify the event is genuinely from Stripe
+    const event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
+
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object;
+      const meta = session.metadata || {};
+      const userId = Number(meta.userId);
+      const creditsToAdd = Number(meta.credits);
+      const amountPaid = Number(meta.amountPaid);
+
+      if (userId && creditsToAdd > 0) {
+        // 2. Use a Drizzle transaction for data integrity
+        await db.transaction(async (tx) => {
+            const updatedUsers = await tx.update(users)
+              .set({ credits: sql`${users.credits} + ${creditsToAdd}` })
+              .where(eq(users.id, userId))
+              .returning({ credits: users.credits, email: users.email, firstName: users.firstName });
+
+            await tx.insert(transactions).values({
+              userId,
+              type: 'purchase',
+              amount: creditsToAdd,
+              description: `Purchased ${meta.bundleName}`,
+              status: 'success',
+              metadata: { stripeSessionId: session.id, amountPaid, currency: meta.currencyPaid },
+            });
+            
+            // 3. Asynchronously sync with Redis and send email
+            const user = updatedUsers[0];
+            redisSyncService.updateCredits(userId, user.credits).catch(console.error);
+
+            if (resend && user.email) {
+                resend.emails.send({
+                    from: process.env.EMAIL_FROM || 'noreply@datazag.com',
+                    to: user.email,
+                    subject: 'Your Datazag Credit Purchase Confirmation',
+                    html: `<h1>Thank you, ${user.firstName}!</h1><p>We've added <strong>${creditsToAdd.toLocaleString()} credits</strong> to your account.</p>`,
+                }).catch(console.error);
+            }
         });
-        try {
-          const insertResult = await db.insert(transactions).values({
-            userId,
-            type: 'purchase',
-            amount: bundle.credits,
-            description: `Stripe Checkout ${session.id} - ${bundle.name}`,
-            apiKeyId: null,
-            status: 'success',
-            metadata: { provider: 'stripe', sessionId: session.id, bundleId: bundle.id, price: bundle.price },
-          } as any);
-          console.log('Transaction insert result:', insertResult);
-        } catch (err) {
-          console.error('Transaction insert failed:', err);
-        }
-        // Sync credits to Redis
-        try {
-          const { redisSyncService } = await import('../../../lib/redis-sync-js');
-          const redisResult = await redisSyncService.updateCredits(userId, newCredits);
-          console.log(`Redis credits update for user ${userId}:`, redisResult);
-        } catch (e) {
-          const msg = typeof e === 'object' && e !== null && 'message' in e ? (e as any).message : String(e);
-          console.warn('Redis sync failed:', msg);
-        }
       }
     }
+    return NextResponse.json({ received: true });
+  } catch (err: any) {
+    console.error('Stripe webhook error:', err);
+    return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
   }
-
-  return NextResponse.json({ received: true });
 }

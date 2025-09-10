@@ -1,43 +1,43 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@/lib/auth';
+import { db } from '@/lib/drizzle';
+import { users, adminRequests } from '@/shared/schema';
+import { Resend } from 'resend';
 
-// This is the new API route that your frontend will call.
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+
 export async function POST(req: NextRequest) {
   const session = await auth();
-
-  // 1. Secure the endpoint to ensure only authenticated users can submit requests.
-  if (!session?.user?.id || !session.jwt) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
-    // 2. Get the form data from the incoming request.
-    const body = await req.json();
-    const { category, subject, description } = body;
-
-    // 3. Define the URL for your external API Gateway.
-    const gatewayUrl = process.env.API_GATEWAY_URL || 'http://localhost:3000';
-
-    // 4. Forward the request to your API Gateway, including the user's token.
-    const gatewayResponse = await fetch(`${gatewayUrl}/api/requests`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.jwt}`,
-      },
-      body: JSON.stringify({ category, subject, description }),
-    });
-
-    // 5. Forward the response from the gateway back to the client.
-    const responseBody = await gatewayResponse.json();
-    if (!gatewayResponse.ok) {
-      return NextResponse.json(responseBody, { status: gatewayResponse.status });
+    const { category, subject, description } = await req.json();
+    if (!category || !subject || !description) {
+      return NextResponse.json({ message: 'Category, subject, and description are required.' }, { status: 400 });
     }
-    
-    return NextResponse.json(responseBody, { status: 201 });
 
+    const newRequest = await db.insert(adminRequests).values({
+      userId: parseInt(session.user.id, 10),
+      category,
+      subject,
+      description,
+      status: 'Open',
+    }).returning();
+
+    if (resend && session.user.email) {
+      resend.emails.send({
+        from: process.env.EMAIL_FROM || 'noreply@datazag.com',
+        to: 'support@datazag.com',
+        subject: `New Customer Request [${category}]: ${subject}`,
+        html: `<h1>New Support Request</h1><p>From: ${session.user.email}</p><p><strong>Subject:</strong> ${subject}</p><p><strong>Description:</strong></p><p>${description}</p>`,
+      }).catch(console.error);
+    }
+
+    return NextResponse.json(newRequest[0], { status: 201 });
   } catch (error) {
-    console.error('Error proxying new request:', error);
+    console.error('Error creating admin request:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

@@ -1,28 +1,36 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { db } from '@/lib/drizzle';
+import { users } from '@/shared/schema';
+import { and, eq, gte } from 'drizzle-orm';
+import bcrypt from 'bcryptjs';
 
-// This is also a public API route.
 export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const gatewayUrl = process.env.API_GATEWAY_URL || 'http://localhost:3000';
+    try {
+        const { token, password } = await req.json();
+        if (!token || !password || password.length < 8) {
+            return NextResponse.json({ message: 'Token and a valid password are required.' }, { status: 400 });
+        }
 
-    // Forward the request to your main API Gateway
-    const gatewayResponse = await fetch(`${gatewayUrl}/api/reset-password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+        const user = await db.query.users.findFirst({
+            where: and(
+                eq(users.passwordResetToken, token),
+                gte(users.passwordResetExpires, new Date().toISOString())
+            )
+        });
 
-    // Return the response from the gateway back to the client
-    const responseBody = await gatewayResponse.json();
-    if (!gatewayResponse.ok) {
-      return NextResponse.json(responseBody, { status: gatewayResponse.status });
+        if (!user) {
+            return NextResponse.json({ message: 'Invalid or expired password reset token.' }, { status: 400 });
+        }
+        
+        const hashedPassword = await bcrypt.hash(password, 12);
+
+        await db.update(users)
+            .set({ password: hashedPassword, passwordResetToken: null, passwordResetExpires: null })
+            .where(eq(users.id, user.id));
+
+        return NextResponse.json({ message: 'Password has been reset successfully. You can now log in.' });
+    } catch (error) {
+        console.error('Reset password error:', error);
+        return NextResponse.json({ message: 'Server error' }, { status: 500 });
     }
-    
-    return NextResponse.json(responseBody);
-
-  } catch (error) {
-    console.error('Error proxying reset password request:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
-  }
 }

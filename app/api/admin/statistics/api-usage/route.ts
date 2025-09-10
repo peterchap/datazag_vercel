@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/drizzle';
-import { users, transactions } from '@/shared/schema';
+import { users, apiUsage } from '@/shared/schema';
 import { eq, desc, sql } from 'drizzle-orm';
 import { USER_ROLES } from '@/shared/schema';
 
@@ -18,21 +18,21 @@ export async function GET(req: NextRequest) {
     const offset = (page - 1) * limit;
 
     const [data, totalResult] = await Promise.all([
-      db.select({
-          transaction: transactions,
-          userEmail: users.email,
+        db.select({
+            usage: apiUsage,
+            userEmail: users.email,
         })
-        .from(transactions)
-        .leftJoin(users, eq(transactions.userId, users.id))
-        .orderBy(desc(transactions.createdAt))
+        .from(apiUsage)
+        .leftJoin(users, eq(apiUsage.userId, users.id))
+        .orderBy(desc(apiUsage.createdAt))
         .limit(limit)
         .offset(offset),
-      db.select({ total: sql<number>`count(*)` }).from(transactions)
+        db.select({ total: sql<number>`count(*)` }).from(apiUsage)
     ]);
-
-    const flatData = data.map(item => ({ ...item.transaction, userEmail: item.userEmail }));
-    const total = totalResult[0].total;
     
+    const flatData = data.map(item => ({ ...item.usage, userEmail: item.userEmail }));
+    const total = totalResult[0].total;
+
     return NextResponse.json({
         data: flatData,
         pagination: {
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error fetching admin transactions:', error);
+    console.error('Error fetching admin API usage:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

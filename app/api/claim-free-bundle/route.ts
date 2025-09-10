@@ -1,80 +1,44 @@
-import { cookies, headers } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
+import { db } from '@/lib/drizzle';
+import { users, transactions, creditBundles } from '@/shared/schema';
+import { eq, and, sql } from 'drizzle-orm';
 
 export async function POST(req: Request) {
-  try {
-    // Resolve a gateway base that is not the same as the current Next server to avoid self-calls/loops
-    const hdrs0 = await headers();
-    const host = hdrs0.get('x-forwarded-host') || hdrs0.get('host') || '';
-    const configuredBase = process.env.NEXT_PUBLIC_API_GATEWAY_URL || '';
-    // If configured base points to same host, try a fallback port (commonly gateway runs on 3001 when Next uses 3000)
-    let apiBase = configuredBase;
-    try {
-      const u = new URL(configuredBase || 'http://localhost:3000');
-      if (!configuredBase || u.host === host) {
-        apiBase = process.env.API_GATEWAY_FALLBACK_URL || 'http://localhost:3001';
-      }
-    } catch {
-      apiBase = process.env.API_GATEWAY_FALLBACK_URL || 'http://localhost:3001';
-    }
-    const body = await req.json().catch(() => ({}));
-    const { bundleId, userId: userIdFromBody } = body || {};
-    if (!bundleId) return NextResponse.json({ message: 'bundleId is required' }, { status: 400 });
-
-  const hdrs = await headers();
-  const auth = hdrs.get('authorization');
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('[claim-free-bundle proxy] Incoming with Authorization:', !!auth, { host, apiBase });
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-    // If Authorization present, forward to public authenticated endpoint
-  if (auth) {
-      const ac = new AbortController();
-      const t = setTimeout(() => ac.abort(), 7000);
-      const res = await fetch(`${apiBase}/api/claim-free-bundle`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': auth,
-        },
-        body: JSON.stringify({ bundleId }),
-        signal: ac.signal,
-      }).finally(() => clearTimeout(t));
-      const text = await res.text();
-      return new NextResponse(text, { status: res.status, headers: { 'Content-Type': res.headers.get('content-type') || 'application/json' } });
+  try {
+    const { bundleId } = await req.json();
+    const userId = parseInt(session.user.id, 10);
+
+    const bundle = await db.query.creditBundles.findFirst({
+      where: and(eq(creditBundles.id, bundleId), eq(creditBundles.price, 0))
+    });
+
+    if (!bundle) {
+      return NextResponse.json({ message: 'Free bundle not found.' }, { status: 404 });
     }
 
-    // Else try internal service-key flow with userId
-  const cookieStore = await cookies();
-  const userIdCookie = cookieStore.get('user_id')?.value || cookieStore.get('userId')?.value || cookieStore.get('uid')?.value;
-    const userId = Number(userIdCookie || userIdFromBody);
-    const serviceKey = process.env.API_SERVICE_KEY || process.env.INTERNAL_API_TOKEN || process.env.ADMIN_API_SECRET;
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[claim-free-bundle proxy] Using service-key flow', {
-        hasServiceKey: !!serviceKey,
-        userIdFromBody: userIdFromBody ? 'present' : 'missing',
-        userIdCookie: userIdCookie ? 'present' : 'missing',
-        userIdResolved: userId || 'missing'
+    // You might add a check here to ensure a user can only claim a free bundle once.
+
+    await db.transaction(async (tx) => {
+      await tx.update(users).set({ credits: sql`${users.credits} + ${bundle.credits}` }).where(eq(users.id, userId));
+      await tx.insert(transactions).values({
+        userId,
+        type: 'purchase',
+        amount: bundle.credits,
+        description: `Claimed free bundle: ${bundle.name}`,
+        status: 'success'
       });
-    }
-    if (!userId || !serviceKey) {
-      return NextResponse.json({ message: 'Authentication required' }, { status: 401 });
-    }
+    });
 
-    const ac = new AbortController();
-    const t = setTimeout(() => ac.abort(), 7000);
-    const res = await fetch(`${apiBase}/api/internal/claim-free-bundle`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-service-key': String(serviceKey),
-      },
-      body: JSON.stringify({ bundleId, userId }),
-      signal: ac.signal,
-    }).finally(() => clearTimeout(t));
-    const text = await res.text();
-    return new NextResponse(text, { status: res.status, headers: { 'Content-Type': res.headers.get('content-type') || 'application/json' } });
-  } catch (e: any) {
-    return NextResponse.json({ message: e?.message || 'Server error' }, { status: 500 });
+    return NextResponse.json({ success: true, message: 'Free bundle claimed.' });
+
+  } catch (error) {
+    console.error('Error claiming free bundle:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

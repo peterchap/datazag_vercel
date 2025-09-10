@@ -1,35 +1,37 @@
-import type { User } from "@/shared/schema"; // Assuming a shared User type
+import { db } from "@/lib/drizzle";
+import { users } from "@/shared/schema";
+import { eq } from "drizzle-orm";
+import type { User } from "@/shared/schema";
 
 /**
  * Fetches the list of users belonging to the same company as the
- * currently authenticated client admin.
- * @param jwt The client admin's JWT token for authentication.
+ * currently authenticated client admin. This now connects directly to the database.
+ * @param adminUserId The ID of the client admin making the request.
  * @returns An array of user objects.
  */
-export async function fetchCompanyUsers(jwt: string): Promise<User[]> {
-  const gatewayUrl = process.env.API_GATEWAY_URL || 'http://localhost:3000';
-
+export async function fetchCompanyUsers(adminUserId: string): Promise<User[]> {
   try {
-    // This makes a secure, server-to-server call to your API Gateway.
-    const response = await fetch(`${gatewayUrl}/api/client-admin/company-users`, {
-      method: 'GET',
-      headers: {
-        // We include the client admin's JWT to authenticate the request.
-        'Authorization': `Bearer ${jwt}`, 
-      },
-      // Ensure we always get the latest data, not a cached version.
-      cache: 'no-store',
+    // 1. First, get the client admin's own user record to find their company name.
+    const adminUser = await db.query.users.findFirst({
+        where: eq(users.id, parseInt(adminUserId, 10)),
+        columns: { company: true }
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || `Failed to fetch company users: ${response.statusText}`);
+    if (!adminUser?.company) {
+        console.warn(`Client admin with ID ${adminUserId} does not have a company associated.`);
+        return [];
     }
 
-    return await response.json();
+    // 2. Then, fetch all users who belong to that same company.
+    const companyUsers = await db.query.users.findMany({
+        where: eq(users.company, adminUser.company),
+        orderBy: (users, { asc }) => [asc(users.firstName)],
+    });
+
+    return companyUsers;
 
   } catch (error) {
-    console.error("Error fetching company users from gateway:", error);
+    console.error("Error fetching company users directly from DB:", error);
     return []; // Return an empty array on error to prevent the page from crashing.
   }
 }

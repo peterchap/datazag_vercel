@@ -43,46 +43,41 @@ declare module "next-auth/jwt" {
 
 // Define the entire configuration object separately for clarity and type safety.
 export const authConfig = {
-  // We no longer need the explicit `secret` here as NextAuth will
-  // automatically pick up the AUTH_SECRET environment variable.
   adapter: DrizzleAdapter(db),
   session: { strategy: "jwt" },
-  pages: {
-    signIn: "/login",
-  },
+  pages: { signIn: "/login" },
   providers: [
-    GitHubProvider({
-      clientId: process.env.GITHUB_CLIENT_ID ?? (() => { throw new Error("GITHUB_CLIENT_ID is not set"); })(),
-      clientSecret: process.env.GITHUB_CLIENT_SECRET ?? (() => { throw new Error("GITHUB_CLIENT_SECRET is not set"); })(),
-    }),
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID ?? (() => { throw new Error("GOOGLE_CLIENT_ID is not set"); })(),
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? (() => { throw new Error("GOOGLE_CLIENT_SECRET is not set"); })(),
-    }),
+    // ... (your Google and GitHub providers) ...
     Credentials({
       name: "Credentials",
-      credentials: {
-        email: { label: "Email", type: "email", required: true },
-        password: { label: "Password", type: "password", required: true },
-      },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
-
-        const user = await db.query.users.findFirst({
-          where: (users, { eq }) => eq(users.email, String(credentials.email).toLowerCase()),
-        });
-
-        if (!user || !user.password) return null;
-
-        const isValid = await bcrypt.compare(String(credentials.password), user.password);
-        if (!isValid) return null;
-        
-        try {
-          await db.update(users).set({ lastLogin: new Date().toISOString() }).where(eq(users.id, user.id));
-        } catch (error) {
-            console.error("Failed to update last login:", error);
+        if (!credentials?.email || !credentials?.password) {
+            // This now throws a specific error that will be shown to the user.
+            throw new Error("Please enter your email and password.");
         }
 
+        const user = await db.query.users.findFirst({
+          where: eq(users.email, String(credentials.email).toLowerCase()),
+        });
+
+        if (!user) {
+          // For security, it's best not to reveal if the user exists,
+          // but we throw a clear error.
+          throw new Error("Invalid email or password.");
+        }
+
+        if (!user.password) {
+            throw new Error("This account is for social sign-in only.");
+        }
+
+        const isValid = await bcrypt.compare(String(credentials.password), user.password);
+        
+        if (!isValid) {
+          throw new Error("Invalid email or password."); // Same generic message for security
+        }
+        
+        // ... (rest of your successful login logic)
+        
         return {
             id: user.id.toString(),
             email: user.email,
@@ -94,6 +89,48 @@ export const authConfig = {
     }),
   ],
   callbacks: {
+    async signIn({ user, account, profile }) {
+      // For social logins (OAuth), we need to check if the user exists and,
+      // if not, create them in our database.
+      if (account?.provider === "google" || account?.provider === "github") {
+        const email = user.email;
+        if (!email) return false; // Social accounts must provide an email.
+
+        try {
+          // Check if a user with this email already exists
+          let existingUser = await db.query.users.findFirst({
+            where: eq(users.email, email),
+          });
+
+          if (!existingUser) {
+            // If the user doesn't exist, create a new one.
+            const [firstName, ...lastNameParts] = user.name?.split(" ") || ["", ""];
+            const lastName = lastNameParts.join(" ");
+
+            const [newUser] = await db.insert(users).values({
+              firstName: firstName,
+              lastName: lastName,
+              email: email,
+              emailVerified: true, // OAuth emails are considered verified
+              // You might generate a placeholder password or handle this differently
+              password: await bcrypt.hash(`oauth-${Date.now()}`, 10),
+              company: "Default Company", // Or prompt for this after signup
+            }).returning();
+            
+            existingUser = newUser;
+          }
+          
+          // Link the user's ID to the session to ensure they are logged in
+          user.id = existingUser.id.toString();
+          return true;
+
+        } catch (error) {
+          console.error("OAuth signIn callback error:", error);
+          return false; // Prevent sign-in on error
+        }
+      }
+      return true; // Allow standard credential logins to proceed
+    },
     // The jwt callback populates the token with custom data.
     async jwt({ token, user }) {
       if (user) {

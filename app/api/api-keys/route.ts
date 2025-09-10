@@ -1,70 +1,79 @@
-// Session-based API key management for the portal UI (no admin secret, no CORS hurdles)
 import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@/lib/auth';
-
-const GATEWAY_URL = process.env.API_GATEWAY_URL || 'http://localhost:3000';
+import { db } from '@/lib/drizzle';
+import { users, apiKeys } from '@/shared/schema';
+import { eq } from 'drizzle-orm';
+import { redisSyncService } from '@/lib/redis-sync-client';
+import { randomBytes } from 'crypto';
 
 /**
  * GET /api/api-keys
- * Securely proxies the request to the API Gateway to fetch the user's keys.
+ * Fetches all API keys for the currently authenticated user.
  */
 export async function GET(req: NextRequest) {
   const session = await auth();
-  if (!session?.user?.id || !session.jwt) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
-    const gatewayResponse = await fetch(`${GATEWAY_URL}/api/api-keys`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${session.jwt}`,
-      },
-      cache: 'no-store',
+    const userApiKeys = await db.query.apiKeys.findMany({
+      where: eq(apiKeys.userId, parseInt(session.user.id, 10)),
+      orderBy: (apiKeys, { desc }) => [desc(apiKeys.createdAt)],
     });
 
-    const data = await gatewayResponse.json();
-    if (!gatewayResponse.ok) {
-      return NextResponse.json(data, { status: gatewayResponse.status });
-    }
-    return NextResponse.json(data);
+    // Mask the keys for security before sending to the client
+    const maskedKeys = userApiKeys.map(key => ({
+      ...key,
+      key: `datazag...${key.key.slice(-8)}`,
+    }));
 
+    return NextResponse.json(maskedKeys);
   } catch (error) {
-    console.error('Proxy GET /api-keys error:', error);
+    console.error('Get API keys error:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
 
 /**
  * POST /api/api-keys
- * Securely proxies the request to the API Gateway to create a new key.
+ * Creates a new API key for the currently authenticated user.
  */
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id || !session.jwt) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  try {
-    const body = await req.json();
-
-    const gatewayResponse = await fetch(`${GATEWAY_URL}/api/api-keys`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.jwt}`,
-      },
-      body: JSON.stringify(body),
-    });
-
-    const data = await gatewayResponse.json();
-    if (!gatewayResponse.ok) {
-      return NextResponse.json(data, { status: gatewayResponse.status });
+    const session = await auth();
+    if (!session?.user?.id) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    return NextResponse.json(data, { status: 201 });
 
-  } catch (error) {
-    console.error('Proxy POST /api-keys error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
-  }
+    try {
+        const { name } = await req.json();
+        if (!name) {
+            return NextResponse.json({ message: 'API key name is required' }, { status: 400 });
+        }
+
+        const key = `datazag_${randomBytes(16).toString('hex')}`;
+        
+        const newUserKey = await db.insert(apiKeys).values({
+            userId: parseInt(session.user.id, 10),
+            key,
+            name,
+            active: true,
+        }).returning();
+
+        const userCredits = session.user.credits || 0;
+        
+        // Asynchronously sync the new key with Redis
+        redisSyncService.registerApiKey({
+            key: key,
+            user_id: parseInt(session.user.id, 10),
+            credits: userCredits,
+            active: true,
+        }).catch(err => console.error("Redis sync failed for new API key:", err));
+
+        return NextResponse.json(newUserKey[0], { status: 201 });
+
+    } catch (error) {
+        console.error('Create API key error:', error);
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    }
 }

@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { formatDate, formatNumber } from "@/lib/utils";
 import { useCurrency } from "@/components/currency-selector";
 import type { Transaction, User } from "@/shared/schema";
@@ -26,6 +27,8 @@ export function BillingClient({ user, initialPaymentHistory }: BillingClientProp
   const [isPortalLoading, setIsPortalLoading] = useState(false);
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'ascending' | 'descending' }>({ key: 'createdAt', direction: 'descending' });
   const { toast } = useToast();
+
+  const isStripeCustomer = !!user?.stripeCustomerId;
 
   const handleDownloadInvoice = async (transaction: Transaction) => {
     const sessionId = (transaction.metadata as any)?.stripeSessionId;
@@ -135,13 +138,36 @@ export function BillingClient({ user, initialPaymentHistory }: BillingClientProp
         <Card className="flex flex-col">
           <CardHeader>
             <CardTitle>Manage Billing</CardTitle>
-            <CardDescription>Update payment methods or view invoices.</CardDescription>
+            <CardDescription>
+              {isStripeCustomer 
+                ? "Update payment methods or view invoices."
+                : "Your billing portal will be available after your first purchase."
+              }
+            </CardDescription>
           </CardHeader>
           <CardContent className="mt-auto">
-            <Button className="w-full" onClick={handleManageSubscription} disabled={isPortalLoading}>
-              {isPortalLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <ExternalLink className="mr-2 h-4 w-4"/>}
-              Manage Stripe Payments
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  {/* The button is now disabled with a helpful tooltip if the user is not a customer */}
+                  <div className="w-full">
+                    <Button 
+                      className="w-full" 
+                      onClick={handleManageSubscription} 
+                      disabled={isPortalLoading || !isStripeCustomer}
+                    >
+                      {isPortalLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <ExternalLink className="mr-2 h-4 w-4"/>}
+                      Manage Stripe Payments
+                    </Button>
+                  </div>
+                </TooltipTrigger>
+                {!isStripeCustomer && (
+                  <TooltipContent>
+                    <p>You must make a purchase before accessing the Stripe customer portal.</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           </CardContent>
         </Card>
         <Card className="flex flex-col">
