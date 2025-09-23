@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     }
 
     const newRequest = await db.insert(adminRequests).values({
-      userId: parseInt(session.user.id, 10),
+      userId: session.user.id,
       category,
       subject,
       description,

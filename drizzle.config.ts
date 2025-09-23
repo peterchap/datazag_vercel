@@ -1,28 +1,43 @@
-/// <reference types="node" />
-import { defineConfig } from "drizzle-kit";
+import { defineConfig } from 'drizzle-kit';
 import * as dotenv from 'dotenv';
 
+const envFile = process.env.NODE_ENV === 'production' ? '.env.production' : '.env.development';
+dotenv.config({ path: envFile });
+// --- THIS IS THE FIX ---
+// This code explicitly finds and loads your .env.local file, ensuring that
+// drizzle-kit always uses the correct DATABASE_URL for your current environment.
+dotenv.config({ path: '.env' });
 dotenv.config({
-  path: '.env.local',
+  path: '.env.development',
 });
 
+
+
+// --- END OF FIX ---
+console.log('=== DRIZZLE CONNECTION DEBUG ===');
+console.log('DATABASE_URL:', process.env.DATABASE_URL);
+console.log('Parsed connection details:');
 if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL must be set. Ensure the database is provisioned.");
+  throw new Error('DATABASE_URL is not set in your .env.local file');
+
 }
-//console.log(`[drizzle-kit] Attempting to connect with DATABASE_URL: ${process.env.DATABASE_URL}`);
+if (process.env.DATABASE_URL) {
+  const url = new URL(process.env.DATABASE_URL);
+  console.log('Host:', url.hostname);
+  console.log('Port:', url.port);
+  console.log('Database:', url.pathname.replace('/', ''));
+  console.log('Username:', url.username);
+}
+console.log('================================');
 
 export default defineConfig({
-  out: "./migrations",
-  schema: "./shared/schema.ts",
-  dialect: "postgresql",
+  schema: './shared/schema.ts',
+  out: './drizzle', // Or './migrations' if you have changed it
+  dialect: 'postgresql',
   dbCredentials: {
-    url: "postgresql://neondb_owner:npg_YvoBpI3PHL1u@ep-lively-math-adg9ggki-pooler.c-2.us-east-1.aws.neon.tech:5432/neondb?sslmode=require&channel_binding=require",
+    // This now safely and dynamically uses the URL from your .env.local file.
+    url: process.env.DATABASE_URL,
   },
-  // Performance optimizations
   verbose: true,
   strict: true,
-  // Enable introspection for better type safety
-  introspect: {
-    casing: 'camel',
-  },
 });

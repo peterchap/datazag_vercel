@@ -1,10 +1,11 @@
-import { auth, signOut } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { USER_ROLES } from "@/shared/schema";
 import { SidebarNav } from "./sidebar-nav";
 import Link from "next/link";
 import Image from "next/image";
 import { CurrencySelector } from "@/components/currency-selector";
-import { Button } from "@/components/ui/button";
+import { LogoutButton } from "@/components/logout-button";
+
 import {
   Home,
   Settings,
@@ -31,7 +32,7 @@ export async function Sidebar() {
   const isBusinessAdmin = user?.role === USER_ROLES.BUSINESS_ADMIN;
   const isClientAdmin = user?.role === USER_ROLES.CLIENT_ADMIN;
 
-  // --- THIS IS THE MISSING CODE ---
+
   // These arrays define all the links for the user and admin sections.
   const navItems = [
     { href: "/dashboard", iconName: "Home" as const, label: "Dashboard" },
@@ -67,7 +68,7 @@ export async function Sidebar() {
           alt="Datazag Logo"
           width={120}
           height={32}
-          className="h-8 w-auto"
+          className="h-auto w-auto"
         />
           </Link>
           <span className="text-center font-semi-bold text-[1.2rem] w-full block">Customer Portal</span>
@@ -94,21 +95,7 @@ export async function Sidebar() {
         </div>
 
         <CurrencySelector />
-
-        <form
-          action={async () => {
-            "use server";
-            await signOut();
-          }}
-        >
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-3 px-3 text-muted-foreground"
-          >
-            <LogOut className="h-4 w-4" />
-            Log Out
-          </Button>
-        </form>
+        <LogoutButton />
       </div>
     </div>
   );

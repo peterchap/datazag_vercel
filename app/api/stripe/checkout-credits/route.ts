@@ -12,7 +12,7 @@ const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SEC
 export async function POST(req: NextRequest) {
   // 1. Authentication is now handled with the modern auth() helper.
   const session = await auth();
-  if (!session?.user?.id || !session.jwt) {
+  if (!session?.user?.id || !session.user.email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

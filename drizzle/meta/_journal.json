@@ -1,0 +1,13 @@
+{
+  "version": "6",
+  "dialect": "pg",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1758018187377,
+      "tag": "0000_sudden_violations",
+      "breakpoints": true
+    }
+  ]
+}

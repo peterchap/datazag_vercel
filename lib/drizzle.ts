@@ -1,13 +1,57 @@
 import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from '@/shared/schema';
+import { existsSync, readFileSync } from 'fs';
+import { resolve as resolvePath } from 'path';
 
-const rawUrl = process.env.DATABASE_URL?.trim();
+console.log('=== NEXT.JS APP DATABASE CONNECTION ===');
+
+const env = process.env.NODE_ENV || 'development';
+const isProduction = env === 'production';
+const isVercel = process.env.VERCEL === '1';
+
+const mask = (s?: string) => (s && s.length > 8) ? s.replace(/^(.{4}).*(.{4})$/, '$1…$2') : s;
+
+function readEnvVarFromFiles(name: string, files: string[]): string | undefined {
+  for (const f of files) {
+    try {
+      const p = resolvePath(process.cwd(), f);
+      if (!existsSync(p)) continue;
+      const content = readFileSync(p, 'utf8');
+      const lines = content.split(/\r?\n/);
+      for (const line of lines) {
+        const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
+        if (m && m[1] === name) {
+          let v = m[2];
+          v = v.replace(/^"(.*)"$/, '$1').replace(/^'(.*)'$/, '$1'); // strip quotes
+          return v;
+        }
+      }
+    } catch {
+      // ignore parse errors per-file
+    }
+  }
+  return undefined;
+}
+
+// Prefer .env files locally (override OS env), always use process.env on Vercel
+let rawUrlFromFiles: string | undefined;
+if (!isVercel) {
+  rawUrlFromFiles = readEnvVarFromFiles('DATABASE_URL', [
+    `.env.${env}.local`,
+    `.env.local`,
+    `.env.${env}`,
+    `.env`,
+  ])?.trim();
+}
+const rawUrl = (rawUrlFromFiles || process.env.DATABASE_URL)?.trim();
+
+const hint = isVercel ? 'Vercel project env' : `.env.${env}.local / .env.local / .env.${env} / .env (fallback to OS env)`;
+console.log('DATABASE_URL set:', Boolean(rawUrl), 'hint:', hint, 'NODE_ENV:', env, 'source:', rawUrlFromFiles ? 'file' : 'env');
+if (rawUrl) console.log('DATABASE_URL (masked):', mask(rawUrl));
+
 if (!rawUrl) throw new Error('DATABASE_URL must be set');
 if (rawUrl.startsWith('duckdb://')) throw new Error('duckdb:// not supported in this deployment');
-
-const isProduction = process.env.NODE_ENV === 'production';
-const isVercel = process.env.VERCEL === '1';
 
 const createPool = () => new Pool({
   connectionString: rawUrl,
@@ -25,7 +69,7 @@ declare global { // eslint-disable-line
 }
 
 export const pool = globalThis.__datazag_drizzle_pool__ ?? createPool();
-if (process.env.NODE_ENV !== 'production') {
+if (!isProduction) {
   globalThis.__datazag_drizzle_pool__ = pool;
 }
 

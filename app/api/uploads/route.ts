@@ -31,7 +31,7 @@ export async function POST(request: Request) {
 
     // --- Log the job to your database ---
     await db.insert(uploadJobs).values({
-      userId: parseInt(session.user.id, 10),
+      userId: session.user.id,
       fileName: file.name,
       description: description,
       region: region,

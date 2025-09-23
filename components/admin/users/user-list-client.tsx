@@ -44,6 +44,13 @@ export function UserListClient({ initialUsers }: { initialUsers: User[] }) {
   }, [searchTerm, users]);
   
   // --- Action Handlers ---
+
+  const handleActionSuccess = (message: string) => {
+      toast({ title: "Success", description: message });
+      // 3. This is the fix. It tells Next.js to refetch the server data for this page.
+      router.refresh(); 
+  };
+
   const handleAddCredits = async () => {
     if (!selectedUser || creditsToAdd <= 0) return;
     setIsSubmitting(true);

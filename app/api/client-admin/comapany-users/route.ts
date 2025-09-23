@@ -17,7 +17,10 @@ export async function GET() {
   try {
     // 2. First, get the client admin's own user record to find their company name
     const adminUser = await db.query.users.findFirst({
-        where: eq(users.id, parseInt(session.user.id!, 10))
+        where: eq(users.id, session.user.id),
+        columns: {
+            company: true,
+        }
     });
 
     if (!adminUser?.company) {

@@ -1,10 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/drizzle';
-import { users, apiKeys } from '@/shared/schema';
+import {  apiKeys } from '@/shared/schema';
 import { eq } from 'drizzle-orm';
 import { redisSyncService } from '@/lib/redis-sync-client';
-import { randomBytes } from 'crypto';
+import { nanoid } from 'nanoid';
 
 /**
  * GET /api/api-keys
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const userApiKeys = await db.query.apiKeys.findMany({
-      where: eq(apiKeys.userId, parseInt(session.user.id, 10)),
+      where: eq(apiKeys.userId, session.user.id), // Remove parseInt - user ID is now string
       orderBy: (apiKeys, { desc }) => [desc(apiKeys.createdAt)],
     });
 
@@ -45,35 +45,38 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    try {
-        const { name } = await req.json();
-        if (!name) {
-            return NextResponse.json({ message: 'API key name is required' }, { status: 400 });
-        }
+    const body = await req.json();
+    const { name } = body;
 
-        const key = `datazag_${randomBytes(16).toString('hex')}`;
-        
-        const newUserKey = await db.insert(apiKeys).values({
-            userId: parseInt(session.user.id, 10),
-            key,
-            name,
-            active: true,
-        }).returning();
-
-        const userCredits = session.user.credits || 0;
-        
-        // Asynchronously sync the new key with Redis
-        redisSyncService.registerApiKey({
-            key: key,
-            user_id: parseInt(session.user.id, 10),
-            credits: userCredits,
-            active: true,
-        }).catch(err => console.error("Redis sync failed for new API key:", err));
-
-        return NextResponse.json(newUserKey[0], { status: 201 });
-
-    } catch (error) {
-        console.error('Create API key error:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    if (!name) {
+      return NextResponse.json({ error: 'Name is required' }, { status: 400 });
     }
+
+    const newApiKey = `datazag_${nanoid(32)}`;
+
+    // ✅ CREATE THE CORRECT RECORD FOR THE REDIS PROXY
+    const apiKeyRecord = {
+      api_key: newApiKey,
+      user_id: session.user.id,
+      credits: session.user.credits ?? 0, // Get credits from session, default to 0
+      active: true,
+    }; 
+
+    console.log('[API Route] Sending this record to Redis Sync:', apiKeyRecord);
+
+    try {
+    await redisSyncService.registerApiKey(apiKeyRecord);
+  } catch (error: any) {
+    console.error('[Redis Sync Error] Failed to register API key:', newApiKey, error);
+    return NextResponse.json({ error: `Failed to sync API key with Redis: ${error.message}` }, { status: 500 });
+  }
+
+  // Your existing logic to save the key to your own Postgres database is still correct
+  const createdApiKey = await db.insert(apiKeys).values({
+    key: newApiKey,
+    name, // The 'name' is saved here, in your main DB
+    userId: session.user.id,
+  }).returning();
+
+  return NextResponse.json(createdApiKey[0], { status: 201 });
 }

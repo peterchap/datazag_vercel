@@ -12,7 +12,7 @@ export async function POST(req: Request) {
 
   try {
     const { bundleId } = await req.json();
-    const userId = parseInt(session.user.id, 10);
+    const userId = session.user.id;
 
     const bundle = await db.query.creditBundles.findFirst({
       where: and(eq(creditBundles.id, bundleId), eq(creditBundles.price, 0))

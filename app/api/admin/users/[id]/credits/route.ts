@@ -6,7 +6,6 @@ import { users, transactions } from '@/shared/schema';
 import { eq, sql } from 'drizzle-orm';
 import { redisSyncService } from '@/lib/redis-sync-client';
 
-// The function signature is updated to correctly handle the params promise.
 export async function POST(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -18,9 +17,8 @@ export async function POST(
   }
 
   try {
-    // We now correctly await the promise to get the params object.
     const params = await context.params;
-    const userId = parseInt(params.id, 10);
+    const userId = params.id; // This is now a string (text ID)
     const { amount } = await req.json();
 
     if (!amount || typeof amount !== 'number' || amount <= 0) {
@@ -46,13 +44,19 @@ export async function POST(
         status: 'success',
     });
     
-    redisSyncService.updateCredits(userId, newBalance)
-      .then(result => {
-        if (result.success) {
-          console.log(`[Redis Sync] Successfully synced credits for user ${userId}.`);
-        } else {
-          console.error(`[Redis Sync Failed] for user ${userId}:`, result.message);
-        }
+    // Updated to use the new Redis sync method
+    redisSyncService.updateUserCredits(userId, newBalance)
+      .then(results => {
+        const successCount = results.filter(r => r.success).length;
+        const totalKeys = results.length;
+        console.log(`[Redis Sync] Successfully synced credits for ${successCount}/${totalKeys} API keys for user ${userId}.`);
+        
+        // Log any failures
+        results.forEach((result, index) => {
+          if (!result.success) {
+            console.error(`[Redis Sync Failed] API key ${index} for user ${userId}:`, result.message);
+          }
+        });
       })
       .catch(error => {
         console.error(`[Redis Sync Error] for user ${userId}:`, error);

@@ -10,14 +10,19 @@ export default async function CompanyAdminDashboardPage() {
   
   if (
     !session?.user || 
-    (session.user.role !== USER_ROLES.CLIENT_ADMIN) || 
-    !session.jwt
+    (session.user.role !== USER_ROLES.CLIENT_ADMIN)
   ) {
     redirect("/dashboard"); 
   }
 
   // Fetch the initial list of users for the admin's company
-  const initialCompanyUsers = await fetchCompanyUsers(session.jwt);
+  const initialCompanyUsers = await fetchCompanyUsers(session.user.id);
 
-  return <CompanyAdminDashboardClient initialUsers={initialCompanyUsers} />;
+  // Normalize to the component's expected type (numeric id)
+  const normalizedCompanyUsers = initialCompanyUsers.map((u) => ({
+    ...u,
+    id: typeof u.id === "string" ? Number(u.id) : u.id,
+  }));
+
+  return <CompanyAdminDashboardClient initialUsers={normalizedCompanyUsers} />;
 }

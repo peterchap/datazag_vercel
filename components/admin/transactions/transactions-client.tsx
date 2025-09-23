@@ -16,7 +16,6 @@ import { MultiSelectCombobox } from "@/components/ui/multi-select-combobox";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import type { Transaction } from "@/shared/schema";
 
-// Define the shape of the data this component will work with
 type TransactionWithUser = Transaction & { userEmail: string | null, company: string | null };
 type UserFilterItem = { value: string; label: string; };
 type CompanyFilterItem = { value: string; label: string; };
@@ -30,9 +29,6 @@ export function TransactionsClient({ initialTransactions, usersForFilter, compan
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>([]);
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'ascending' | 'descending' }>({ key: 'createdAt', direction: 'descending' });
 
-  // This useEffect hook is the engine of your filters. It watches for any change
-  // in the date range, selected user, or selected companies, and automatically
-  // re-fetches the data from your API.
   useEffect(() => {
     const fetchFilteredData = async () => {
       setLoading(true);
@@ -55,19 +51,19 @@ export function TransactionsClient({ initialTransactions, usersForFilter, compan
     fetchFilteredData();
   }, [date, selectedUserId, selectedCompanies]);
 
-  // Calculate key metrics based on the currently filtered transaction data
+  // metrics are computed in cents, display as currency by dividing by 100
   const metrics = useMemo(() => {
     const purchases = transactions.filter(t => t.type === 'purchase');
     const usage = transactions.filter(t => t.type === 'usage');
-    // Note: 'Total Revenue' would require price data. We are calculating credits purchased instead.
+    const purchasesTotalCents = purchases.reduce((sum, tx) => sum + tx.amount, 0);
+    const usageTotalCents = Math.abs(usage.reduce((sum, tx) => sum + tx.amount, 0));
     return {
       totalPurchases: purchases.length,
-      creditsPurchased: purchases.reduce((sum, tx) => sum + tx.amount, 0),
-      creditsUsed: Math.abs(usage.reduce((sum, tx) => sum + tx.amount, 0)),
+      purchasesTotalCents,
+      usageTotalCents,
     };
   }, [transactions]);
 
-  // Memoized sorting logic for the table
   const sortedTransactions = useMemo(() => {
     let sortableItems = [...transactions];
     sortableItems.sort((a, b) => {
@@ -97,21 +93,18 @@ export function TransactionsClient({ initialTransactions, usersForFilter, compan
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Transactions</h1>
 
-      {/* Key Metrics Summary */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <StatCard title="Total Purchases" value={formatNumber(metrics.totalPurchases)} />
-        <StatCard title="Total Credits Purchased" value={formatNumber(metrics.creditsPurchased)} />
-        <StatCard title="Total Credits Used" value={formatNumber(metrics.creditsUsed)} />
+        <StatCard title="Total Purchase Amount" value={formatCurrency(metrics.purchasesTotalCents / 100)} />
+        <StatCard title="Total Usage Amount" value={formatCurrency(metrics.usageTotalCents / 100)} />
       </div>
 
-      {/* Main Data Card */}
       <Card>
         <CardHeader>
           <CardTitle>Transaction Details</CardTitle>
           <CardDescription>Filter and sort all transactions across the system.</CardDescription>
         </CardHeader>
         <CardContent>
-            {/* Filter Controls are now located here for better context */}
             <div className="flex flex-col md:flex-row gap-4 mb-4 p-4 border rounded-lg bg-muted/50">
                 <Combobox items={[{ value: '', label: 'All Users' }, ...usersForFilter]} value={selectedUserId} setValue={setSelectedUserId} placeholder="Filter by user..." searchPlaceholder="Search users..." icon={UserIcon}/>
                 <MultiSelectCombobox items={companiesForFilter} selected={selectedCompanies} setSelected={setSelectedCompanies} placeholder="Filter by company..." searchPlaceholder="Search companies..." icon={Building}/>
@@ -126,7 +119,6 @@ export function TransactionsClient({ initialTransactions, usersForFilter, compan
                 </Popover>
             </div>
             
-            {/* Data Table */}
             <div className="rounded-md border">
                 <Table>
                 <TableHeader><TableRow>
@@ -147,8 +139,7 @@ export function TransactionsClient({ initialTransactions, usersForFilter, compan
                         <TableCell>{tx.description}</TableCell>
                         <TableCell>{formatDate(new Date(tx.createdAt))}</TableCell>
                         <TableCell className={`text-right font-medium ${tx.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {/* This now always shows credits, which is accurate */}
-                            {formatNumber(tx.amount)}
+                            {formatCurrency(tx.amount / 100)}
                         </TableCell>
                     </TableRow>
                     ))}

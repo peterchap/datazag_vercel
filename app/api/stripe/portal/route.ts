@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     
     // 2. Fetch the user's Stripe Customer ID from your database using Drizzle.
     const userRecord = await db.query.users.findFirst({
-        where: eq(users.id, parseInt(session.user.id, 10)),
+        where: eq(users.id, session.user.id),
         columns: {
             stripeCustomerId: true,
         }

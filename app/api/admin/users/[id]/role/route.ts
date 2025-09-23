@@ -19,7 +19,7 @@ export async function PATCH(
   try {
     // We now correctly await the promise to get the params object.
     const params = await context.params;
-    const userId = parseInt(params.id, 10);
+    const userId = session.user.id;
     const { role } = await req.json();
 
     if (!role || !Object.values(USER_ROLES).includes(role as any)) {

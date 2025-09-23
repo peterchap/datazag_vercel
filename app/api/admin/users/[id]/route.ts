@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/drizzle';
-import { users, apiKeys } from '@/shared/schema';
+import { users, apiKeys, transactions, adminRequests, requestComments } from '@/shared/schema';
 import { eq } from 'drizzle-orm';
 import { USER_ROLES } from '@/shared/schema';
 import { redisSyncService } from '@/lib/redis-sync-client';
@@ -21,13 +21,10 @@ export async function GET(
 
   try {
     const params = await context.params;
-    const userId = parseInt(params.id, 10);
-    if (isNaN(userId)) {
-      return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
-    }
+    const userId = params.id; // Keep as string, don't parse as integer
 
     const user = await db.query.users.findFirst({
-      where: eq(users.id, userId),
+      where: eq(users.id, userId), // userId is now string
       columns: {
         id: true,
         firstName: true,
@@ -66,24 +63,48 @@ export async function DELETE(
 
   try {
     const params = await context.params;
-    const userIdToDelete = parseInt(params.id, 10);
+    const userIdToDelete = params.id; // Keep as string
     
-    if (parseInt(session.user.id!, 10) === userIdToDelete) {
+    // Compare user IDs as strings
+    if (session.user.id === userIdToDelete) {
       return NextResponse.json({ error: "For security, admins cannot delete their own account." }, { status: 400 });
     }
 
+    // Get all API keys for this user
     const userApiKeys = await db.query.apiKeys.findMany({
-      where: eq(apiKeys.userId, userIdToDelete),
+      where: eq(apiKeys.userId, userIdToDelete), // userIdToDelete is now string
     });
 
+    // Remove the API keys from Redis cache first
     const redisDeletionPromises = userApiKeys.map(key => 
       redisSyncService.deleteApiKey(key.key)
     );
-    await Promise.all(redisDeletionPromises);
     
-    await db.delete(users).where(eq(users.id, userIdToDelete));
+    try {
+      await Promise.all(redisDeletionPromises);
+      console.log(`[Redis Sync] Successfully deleted ${userApiKeys.length} API keys from Redis for user ${userIdToDelete}`);
+    } catch (redisError) {
+      console.error(`[Redis Sync Error] Failed to delete some API keys from Redis for user ${userIdToDelete}:`, redisError);
+      // Continue with database deletion even if Redis fails
+    }
+    
+    // Delete from database in a transaction
+    await db.transaction(async (tx) => {
+        // Delete all "child" records first to satisfy foreign key constraints.
+        await tx.delete(requestComments).where(eq(requestComments.userId, userIdToDelete));
+        await tx.delete(adminRequests).where(eq(adminRequests.userId, userIdToDelete));
+        await tx.delete(transactions).where(eq(transactions.userId, userIdToDelete));
+        await tx.delete(apiKeys).where(eq(apiKeys.userId, userIdToDelete));
+        
+        // Finally, delete the user record
+        await tx.delete(users).where(eq(users.id, userIdToDelete));
+    });
 
-    return NextResponse.json({ success: true, message: 'User and all associated data deleted successfully.' });
+    return NextResponse.json({ 
+      success: true, 
+      message: 'User and all associated data deleted successfully.',
+      deletedApiKeys: userApiKeys.length 
+    });
 
   } catch (error) {
     console.error('Error deleting user:', error);

@@ -20,7 +20,7 @@ export async function PATCH(req: NextRequest) {
         lastName: lastName,
         company: company,
       })
-      .where(eq(users.id, parseInt(session.user.id, 10)));
+      .where(eq(users.id, session.user.id));
 
     return NextResponse.json({ message: 'Profile updated successfully.' });
 

@@ -8,7 +8,7 @@ import { UserDetailClient } from "@/components/admin/users/user-detail-client";
 import { notFound } from "next/navigation";
 
 // This server function remains the same.
-async function getUserDetails(userId: number) {
+async function getUserDetails(userId: string) {
   try {
     const [userData, userApiKeys, userTransactions, userApiUsage] = await Promise.all([
       db.query.users.findFirst({ where: eq(users.id, userId) }),
@@ -41,8 +41,8 @@ export default async function UserDetailPage({ params: paramsPromise }: PageProp
   // We now 'await' the promise to get the actual params object.
   const params = await paramsPromise;
 
-  const userId = parseInt(params.id, 10);
-  if (isNaN(userId)) {
+  const userId = params.id;
+  if (Number.isNaN(Number(userId))) {
     notFound();
   }
 

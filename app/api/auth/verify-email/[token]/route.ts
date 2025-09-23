@@ -1,37 +1,51 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { db } from '@/lib/drizzle';
+import { users, emailVerificationTokens } from '@/shared/schema';
+import { and, eq, gte } from 'drizzle-orm';
 
-// The function signature is updated to correctly handle the params promise.
+// This is the final, unified API route for handling email verification links.
 export async function GET(
   req: NextRequest,
   context: { params: Promise<{ token: string }> }
 ) {
   try {
-    // We now correctly await the promise to get the params object.
     const params = await context.params;
     const { token } = params;
-    
-    const gatewayUrl = process.env.API_GATEWAY_URL || 'http://localhost:3000';
     const appBaseUrl = process.env.APP_BASE_URL || 'http://localhost:3001';
 
-    // 1. Forward the verification request to your API Gateway
-    const gatewayResponse = await fetch(`${gatewayUrl}/api/verify-email/${token}`, {
-      method: 'GET',
+    // 1. Find a valid, non-expired token in the database using Drizzle.
+    const verification = await db.query.emailVerificationTokens.findFirst({
+        where: and(
+            eq(emailVerificationTokens.token, token),
+            eq(emailVerificationTokens.used, false),
+            gte(emailVerificationTokens.expiresAt, new Date().toISOString())
+        )
     });
 
-    // 2. Based on the gateway's JSON response, redirect the user's browser
-    if (gatewayResponse.ok) {
-      // On success, redirect to the login page with a success message
-      return NextResponse.redirect(`${appBaseUrl}/login?verified=true`);
-    } else {
-      // On failure, get the error message and redirect to the register page
-      const errorData = await gatewayResponse.json();
-      const errorMessage = encodeURIComponent(errorData.error || 'Verification failed.');
-      return NextResponse.redirect(`${appBaseUrl}/register?error=${errorMessage}`);
+    if (!verification) {
+        throw new Error('Invalid or expired verification token.');
     }
+    
+    // 2. Use a database transaction to ensure both updates succeed or fail together.
+    await db.transaction(async (tx) => {
+        // Mark the user's email as verified.
+        await tx.update(users)
+            .set({ emailVerified: new Date() })
+            .where(eq(users.id, verification.userId));
+        
+        // Mark the token as used to prevent it from being used again.
+        await tx.update(emailVerificationTokens)
+            .set({ used: true })
+            .where(eq(emailVerificationTokens.id, verification.id));
+    });
+    
+    // 3. On success, redirect the user to the login page with a success message.
+    return NextResponse.redirect(`${appBaseUrl}/login?verified=true`);
 
-  } catch (error) {
-    console.error('Error proxying email verification:', error);
+  } catch (error: any) {
+    console.error('Email verification error:', error);
     const appBaseUrl = process.env.APP_BASE_URL || 'http://localhost:3001';
-    return NextResponse.redirect(`${appBaseUrl}/register?error=An+unexpected+error+occurred.`);
+    const errorMessage = encodeURIComponent(error.message || 'Verification failed.');
+    return NextResponse.redirect(`${appBaseUrl}/register?error=${errorMessage}`);
   }
 }

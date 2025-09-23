@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const user = await db.query.users.findFirst({
-        where: eq(users.id, parseInt(session.user.id, 10)),
+        where: eq(users.id, session.user.id),
         columns: { recoveryCodes: true }
     });
 

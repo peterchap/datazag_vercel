@@ -1,9 +1,107 @@
 {
-  "id": "533cff05-8bbe-417f-a039-b0698964a030",
-  "prevId": "651bfe02-f8cf-485d-9e39-e7f8832276c9",
+  "id": "9d115df3-282c-4e26-ac04-bb60276a15f9",
+  "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
+    "public.account": {
+      "name": "account",
+      "schema": "",
+      "columns": {
+        "userId": {
+          "name": "userId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider": {
+          "name": "provider",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "providerAccountId": {
+          "name": "providerAccountId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "refresh_token": {
+          "name": "refresh_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "access_token": {
+          "name": "access_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "token_type": {
+          "name": "token_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scope": {
+          "name": "scope",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "id_token": {
+          "name": "id_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "session_state": {
+          "name": "session_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "account_userId_users_id_fk": {
+          "name": "account_userId_users_id_fk",
+          "tableFrom": "account",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "account_provider_providerAccountId_pk": {
+          "name": "account_provider_providerAccountId_pk",
+          "columns": [
+            "provider",
+            "providerAccountId"
+          ]
+        }
+      },
+      "uniqueConstraints": {}
+    },
     "public.admin_requests": {
       "name": "admin_requests",
       "schema": "",
@@ -16,7 +114,7 @@
         },
         "user_id": {
           "name": "user_id",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -45,15 +143,9 @@
           "notNull": true,
           "default": "'pending'"
         },
-        "admin_notes": {
-          "name": "admin_notes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "reviewed_by": {
           "name": "reviewed_by",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -84,7 +176,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         },
         "admin_requests_reviewed_by_users_id_fk": {
@@ -102,10 +194,7 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      "uniqueConstraints": {}
     },
     "public.api_keys": {
       "name": "api_keys",
@@ -119,7 +208,7 @@
         },
         "user_id": {
           "name": "user_id",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -162,7 +251,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -175,10 +264,7 @@
             "key"
           ]
         }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      }
     },
     "public.api_usage": {
       "name": "api_usage",
@@ -192,7 +278,7 @@
         },
         "user_id": {
           "name": "user_id",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -207,13 +293,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "query_type": {
-          "name": "query_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'unknown'"
         },
         "credits_used": {
           "name": "credits_used",
@@ -255,7 +334,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         },
         "api_usage_api_key_id_api_keys_id_fk": {
@@ -273,10 +352,7 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      "uniqueConstraints": {}
     },
     "public.credit_bundles": {
       "name": "credit_bundles",
@@ -298,7 +374,7 @@
           "name": "description",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "credits": {
           "name": "credits",
@@ -323,17 +399,13 @@
           "name": "currency",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
-          "default": "'usd'"
+          "notNull": true
         }
       },
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      "uniqueConstraints": {}
     },
     "public.discount_codes": {
       "name": "discount_codes",
@@ -370,54 +442,9 @@
           "notNull": true,
           "default": true
         },
-        "max_uses": {
-          "name": "max_uses",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "current_uses": {
-          "name": "current_uses",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "min_purchase_amount": {
-          "name": "min_purchase_amount",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "max_discount_amount": {
-          "name": "max_discount_amount",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_by_user_id": {
           "name": "created_by_user_id",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         }
@@ -447,10 +474,7 @@
             "code"
           ]
         }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      }
     },
     "public.email_verification_tokens": {
       "name": "email_verification_tokens",
@@ -470,7 +494,7 @@
         },
         "user_id": {
           "name": "user_id",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -501,38 +525,7 @@
           "notNull": false
         }
       },
-      "indexes": {
-        "verification_tokens_token_idx": {
-          "name": "verification_tokens_token_idx",
-          "columns": [
-            {
-              "expression": "token",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "verification_tokens_user_id_idx": {
-          "name": "verification_tokens_user_id_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
         "email_verification_tokens_user_id_users_id_fk": {
           "name": "email_verification_tokens_user_id_users_id_fk",
@@ -557,10 +550,7 @@
             "token"
           ]
         }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      }
     },
     "public.request_comments": {
       "name": "request_comments",
@@ -580,7 +570,7 @@
         },
         "user_id": {
           "name": "user_id",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -635,10 +625,49 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      "uniqueConstraints": {}
+    },
+    "public.session": {
+      "name": "session",
+      "schema": "",
+      "columns": {
+        "sessionToken": {
+          "name": "sessionToken",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "userId": {
+          "name": "userId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires": {
+          "name": "expires",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "session_userId_users_id_fk": {
+          "name": "session_userId_users_id_fk",
+          "tableFrom": "session",
+          "tableTo": "users",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {}
     },
     "public.subscription_plans": {
       "name": "subscription_plans",
@@ -655,89 +684,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "features": {
-          "name": "features",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "monthly_price": {
-          "name": "monthly_price",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "quarterly_price": {
-          "name": "quarterly_price",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "annual_price": {
-          "name": "annual_price",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "credits_per_month": {
-          "name": "credits_per_month",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "max_api_keys": {
-          "name": "max_api_keys",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "stripe_price_id_monthly": {
-          "name": "stripe_price_id_monthly",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "stripe_price_id_quarterly": {
-          "name": "stripe_price_id_quarterly",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "stripe_price_id_annual": {
-          "name": "stripe_price_id_annual",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "active": {
-          "name": "active",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
         }
       },
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      "uniqueConstraints": {}
     },
     "public.transactions": {
       "name": "transactions",
@@ -745,15 +697,21 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "serial",
+          "type": "text",
           "primaryKey": true,
           "notNull": true
         },
         "user_id": {
           "name": "user_id",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "api_key_id": {
+          "name": "api_key_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
         },
         "type": {
           "name": "type",
@@ -772,12 +730,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "api_key_id": {
-          "name": "api_key_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
         },
         "status": {
           "name": "status",
@@ -811,7 +763,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "cascade",
           "onUpdate": "no action"
         },
         "transactions_api_key_id_api_keys_id_fk": {
@@ -829,10 +781,7 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      "uniqueConstraints": {}
     },
     "public.upload_jobs": {
       "name": "upload_jobs",
@@ -846,7 +795,7 @@
         },
         "user_id": {
           "name": "user_id",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -914,10 +863,7 @@
             "job_id"
           ]
         }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      }
     },
     "public.user_subscriptions": {
       "name": "user_subscriptions",
@@ -931,7 +877,7 @@
         },
         "user_id": {
           "name": "user_id",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -977,26 +923,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
-        },
-        "paypal_subscription_id": {
-          "name": "paypal_subscription_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
         }
       },
       "indexes": {},
@@ -1029,10 +955,7 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      "uniqueConstraints": {}
     },
     "public.users": {
       "name": "users",
@@ -1040,7 +963,7 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "serial",
+          "type": "text",
           "primaryKey": true,
           "notNull": true
         },
@@ -1066,7 +989,7 @@
           "name": "password",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "email": {
           "name": "email",
@@ -1082,6 +1005,12 @@
         },
         "website": {
           "name": "website",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "image": {
+          "name": "image",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -1114,7 +1043,7 @@
         },
         "parent_user_id": {
           "name": "parent_user_id",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -1125,40 +1054,8 @@
           "notNull": true,
           "default": true
         },
-        "grace_period_end": {
-          "name": "grace_period_end",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "credit_threshold": {
-          "name": "credit_threshold",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "active": {
-          "name": "active",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
         "email_verified": {
           "name": "email_verified",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "email_verification_token": {
-          "name": "email_verification_token",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "email_verification_expires": {
-          "name": "email_verification_expires",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
@@ -1181,71 +1078,8 @@
           "primaryKey": false,
           "notNull": false
         },
-        "failed_login_attempts": {
-          "name": "failed_login_attempts",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "account_locked": {
-          "name": "account_locked",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "account_locked_until": {
-          "name": "account_locked_until",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "two_factor_enabled": {
-          "name": "two_factor_enabled",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "two_factor_secret": {
-          "name": "two_factor_secret",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "recovery_codes": {
           "name": "recovery_codes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "backup_codes": {
-          "name": "backup_codes",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "google_id": {
-          "name": "google_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "github_id": {
-          "name": "github_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "microsoft_id": {
-          "name": "microsoft_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "linkedin_id": {
-          "name": "linkedin_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -1265,23 +1099,7 @@
           "default": "now()"
         }
       },
-      "indexes": {
-        "users_email_idx": {
-          "name": "users_email_idx",
-          "columns": [
-            {
-              "expression": "email",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
         "users_parent_user_id_users_id_fk": {
           "name": "users_parent_user_id_users_id_fk",
@@ -1293,7 +1111,7 @@
           "columnsTo": [
             "id"
           ],
-          "onDelete": "no action",
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -1305,47 +1123,49 @@
           "columns": [
             "email"
           ]
+        }
+      }
+    },
+    "public.verificationToken": {
+      "name": "verificationToken",
+      "schema": "",
+      "columns": {
+        "identifier": {
+          "name": "identifier",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
         },
-        "users_google_id_unique": {
-          "name": "users_google_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "google_id"
-          ]
+        "token": {
+          "name": "token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
         },
-        "users_github_id_unique": {
-          "name": "users_github_id_unique",
-          "nullsNotDistinct": false,
+        "expires": {
+          "name": "expires",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "verificationToken_identifier_token_pk": {
+          "name": "verificationToken_identifier_token_pk",
           "columns": [
-            "github_id"
-          ]
-        },
-        "users_microsoft_id_unique": {
-          "name": "users_microsoft_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "microsoft_id"
-          ]
-        },
-        "users_linkedin_id_unique": {
-          "name": "users_linkedin_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "linkedin_id"
+            "identifier",
+            "token"
           ]
         }
       },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
+      "uniqueConstraints": {}
     }
   },
   "enums": {},
   "schemas": {},
   "sequences": {},
-  "roles": {},
-  "policies": {},
-  "views": {},
   "_meta": {
     "columns": {},
     "schemas": {},

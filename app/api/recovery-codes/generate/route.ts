@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     
     await db.update(users)
       .set({ recoveryCodes: JSON.stringify(hashedCodes) })
-      .where(eq(users.id, parseInt(session.user.id, 10)));
+      .where(eq(users.id, session.user.id));
     
     return NextResponse.json({ codes: plainTextCodes });
   } catch (error) {

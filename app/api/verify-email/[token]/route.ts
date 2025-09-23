@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { db } from '@/lib/drizzle';
 import { users, emailVerificationTokens } from '@/shared/schema';
-import { and, eq, gte } from 'drizzle-orm';
+import { and, eq, gte, sql } from 'drizzle-orm';
 
 export async function GET(
   req: NextRequest,
@@ -17,7 +17,7 @@ export async function GET(
         where: and(
             eq(emailVerificationTokens.token, token),
             eq(emailVerificationTokens.used, false),
-            gte(emailVerificationTokens.expiresAt, new Date().toISOString())
+            gte(emailVerificationTokens.expiresAt, sql`now()`)
         )
     });
 
@@ -26,7 +26,7 @@ export async function GET(
     }
     
     await db.transaction(async (tx) => {
-        await tx.update(users).set({ emailVerified: true }).where(eq(users.id, verification.userId));
+        await tx.update(users).set({ emailVerified: new Date() }).where(eq(users.id, verification.userId));
         await tx.update(emailVerificationTokens).set({ used: true }).where(eq(emailVerificationTokens.id, verification.id));
     });
     

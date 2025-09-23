@@ -8,7 +8,6 @@ import { redisSyncService } from '@/lib/redis-sync-client';
 /**
  * DELETE /api/api-keys/:id
  * Deletes a specific API key belonging to the authenticated user.
- * The function signature is updated to correctly handle the params promise.
  */
 export async function DELETE(
   req: NextRequest,
@@ -20,10 +19,9 @@ export async function DELETE(
   }
 
   try {
-    // We now correctly await the promise to get the params object.
     const params = await context.params;
-    const keyIdToDelete = parseInt(params.id, 10);
-    const userId = parseInt(session.user.id, 10);
+    const keyIdToDelete = parseInt(params.id, 10); // API key ID is still integer (serial)
+    const userId = session.user.id; // User ID is now string
 
     // First, find the key to ensure it belongs to the user and to get its value for Redis
     const keyToDelete = await db.query.apiKeys.findFirst({
@@ -37,8 +35,14 @@ export async function DELETE(
     // Delete the key from the database
     await db.delete(apiKeys).where(eq(apiKeys.id, keyIdToDelete));
     
-    // Asynchronously remove the key from the Redis cache
-    redisSyncService.deleteApiKey(keyToDelete.key).catch(err => console.error("Redis sync failed for API key deletion:", err));
+    // Remove the key from Redis cache with better error handling
+    try {
+      await redisSyncService.deleteApiKey(keyToDelete.key);
+      console.log(`[Redis Sync] Successfully deleted API key from Redis: ${keyToDelete.key}`);
+    } catch (redisError) {
+      console.error(`[Redis Sync Error] Failed to delete API key from Redis: ${keyToDelete.key}`, redisError);
+      // Continue with success response since database deletion succeeded
+    }
 
     return NextResponse.json({ success: true, message: 'API key deleted successfully.' });
 

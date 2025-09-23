@@ -2,6 +2,7 @@ import { db } from "@/lib/drizzle";
 import { users, adminRequests, requestComments, apiKeys, uploadJobs, transactions, apiUsage, discountCodes } from "@/shared/schema";
 import { sql, count, sum, eq, desc, and, gte, lte, not } from "drizzle-orm";
 import type { User, AdminRequest, RequestComment, UploadJob, Transaction } from "@/shared/schema";
+import { use } from "react";
 
 // A helper function to check the status of a service
 async function checkServiceStatus(
@@ -50,11 +51,9 @@ export async function fetchAllAdminRequests() {
  * Fetches the current health status of all critical backend services.
  * @returns An array of service status objects.
  */
-export async function fetchSystemHealth() {
-  const gatewayUrl = process.env.API_GATEWAY_URL || 'http://localhost:3000';
+export async function fetchSystemHealth() {;
   const redisApiUrl = process.env.REDIS_API_URL || 'http://localhost:3001';
   const publicApiUrl = process.env.BIGQUERY_API_URL || 'https://api.datazag.com';
-  console.log("Gateway URL:", gatewayUrl);
   console.log("Redis API URL:", redisApiUrl);
   console.log("Public API URL:", publicApiUrl);
 
@@ -63,15 +62,9 @@ export async function fetchSystemHealth() {
     checkServiceStatus('PostgreSQL Database', async () => {
       await db.execute(sql`SELECT 1`);
       return true;
-    }),
+    }),   
 
-    // 2. Check API Gateway (the Node.js server)
-    checkServiceStatus('API Gateway (Node.js)', async () => {
-      const response = await fetch(`${gatewayUrl}/health`);
-      return response.ok;
-    }),
-
-    // 3. Check Redis API (the FastAPI service on Cloud Run)
+    // 2. Check Redis API (the FastAPI service on Cloud Run)
     checkServiceStatus('Redis API (Cloud Run)', async () => {
       if (!redisApiUrl) {
         throw new Error("REDIS_API_URL is not configured in your Next.js .env.local file.");
@@ -80,7 +73,7 @@ export async function fetchSystemHealth() {
       return response.ok;
     }),
     
-    // 4. Check the Public API
+    // 3. Check the Public API
     checkServiceStatus('Public API', async () => {
       if (!publicApiUrl) {
           throw new Error("BIGQUERY_API_URL is not configured in your Next.js .env.local file.");
@@ -242,7 +235,7 @@ export async function fetchUserRequests(userId: string): Promise<RequestWithComm
     }
 
     const requestHistory: RequestHistoryItem[] = await db.query.adminRequests.findMany({
-      where: eq(adminRequests.userId, parseInt(userId, 10)),
+      where: eq(adminRequests.userId, userId),
       orderBy: [desc(adminRequests.createdAt)],
       // Use Drizzle's 'with' operator to efficiently load related comments
       with: {

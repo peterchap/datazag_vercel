@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     const tokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour expiry
 
     await db.insert(emailVerificationTokens).values({
-      userId: parseInt(session.user.id, 10),
+      userId: session.user.id,
       token: verificationToken,
       expiresAt: tokenExpiry.toISOString(),
       metadata: { newEmail: newEmail, type: 'email_change' }

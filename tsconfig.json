@@ -33,7 +33,8 @@
     "hooks/**/*.tsx",
     "scripts/**/*.ts",
     "types/**/*.d.ts",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    "seed-admin.js"
   ],
   "exclude": ["node_modules", "client", "archive/server"]
 }

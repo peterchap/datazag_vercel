@@ -13,7 +13,7 @@ export async function fetchCompanyUsers(adminUserId: string): Promise<User[]> {
   try {
     // 1. First, get the client admin's own user record to find their company name.
     const adminUser = await db.query.users.findFirst({
-        where: eq(users.id, parseInt(adminUserId, 10)),
+        where: eq(users.id, adminUserId),
         columns: { company: true }
     });
 

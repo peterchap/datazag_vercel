@@ -1,4 +1,7 @@
 /** @type {import('next').NextConfig} */
+
+console.log(`[Next.js Build] Using DATABASE_URL: ${process.env.DATABASE_URL}`);
+
 const nextConfig = {
   // Add a webpack configuration to handle the pg-native module issue.
   webpack: (config, { isServer }) => {

@@ -27,11 +27,11 @@ export async function POST(req: NextRequest) {
 
     // 2. Fetch the user's Stripe Customer ID from your database.
     const userRecord = await db.query.users.findFirst({
-        where: eq(users.id, parseInt(session.user.id, 10)),
-        columns: { stripeCustomerId: true, email: true }
+        where: eq(users.id, session.user.id),
+        columns: { email: true }
     });
 
-    let customerId = userRecord?.stripeCustomerId;
+    let customerId: string | null = null;
 
     // 3. If the user is not yet a Stripe customer, create one.
     if (!customerId) {
@@ -41,11 +41,17 @@ export async function POST(req: NextRequest) {
         });
         customerId = customer.id;
         // Save the new customer ID to your database for future use.
-        await db.update(users).set({ stripeCustomerId: customerId }).where(eq(users.id, parseInt(session.user.id, 10)));
+        // TODO: Add a 'stripeCustomerId' column to your users schema and persist the value below.
+        // await db.update(users).set({ stripeCustomerId: customerId }).where(eq(users.id, session.user.id));
     }
-
     const appBaseUrl = process.env.APP_BASE_URL || 'http://localhost:3001';
 
+    // Ensure we have a valid Stripe customer ID before creating the session.
+    if (!customerId) {
+      throw new Error('Unable to determine Stripe customer ID');
+    }
+
+    // 4. Create a new subscription checkout session with Stripe.
     // 4. Create a new subscription checkout session with Stripe.
     const stripeSession = await stripe.checkout.sessions.create({
       mode: 'subscription',
