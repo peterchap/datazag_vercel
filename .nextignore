@@ -1,0 +1,5 @@
+# Ignore Windows system files that cause Watchpack errors
+DumpStack.log.tmp
+hiberfil.sys
+pagefile.sys
+swapfile.sys

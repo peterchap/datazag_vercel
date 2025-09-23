@@ -94,7 +94,6 @@ export async function Sidebar() {
           </div>
         </div>
 
-        <CurrencySelector />
         <LogoutButton />
       </div>
     </div>

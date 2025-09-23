@@ -39,9 +39,9 @@ export function TransactionsClient({ initialTransactions, usersForFilter, compan
       selectedCompanies.forEach(company => params.append('company', company));
 
       try {
-        const response = await fetch(`/api/admin/transactions?${params.toString()}`);
+        const response = await fetch(`/api/admin/statistics/transactions?${params.toString()}`);
         const data = await response.json();
-        setTransactions(data);
+        setTransactions(data.data || []);
       } catch (error) {
         console.error("Failed to fetch filtered transactions", error);
       } finally {
@@ -53,14 +53,16 @@ export function TransactionsClient({ initialTransactions, usersForFilter, compan
 
   // metrics are computed in cents, display as currency by dividing by 100
   const metrics = useMemo(() => {
-    const purchases = transactions.filter(t => t.type === 'purchase');
-    const usage = transactions.filter(t => t.type === 'usage');
-    const purchasesTotalCents = purchases.reduce((sum, tx) => sum + tx.amount, 0);
-    const usageTotalCents = Math.abs(usage.reduce((sum, tx) => sum + tx.amount, 0));
+    const transactionList = Array.isArray(transactions) ? transactions : [];
+    const purchases = transactionList.filter(t => t.type === 'credits_purchase');
+    const usage = transactionList.filter(t => t.type === 'api_usage');
+    const purchasesTotalCents = purchases.reduce((sum, tx) => sum + tx.amountInBaseCurrencyCents, 0);
+    // For usage, sum the credits consumed, which is more meaningful for cost allocation
+    const usageTotalCredits = usage.reduce((sum, tx) => sum + tx.credits, 0);
     return {
       totalPurchases: purchases.length,
-      purchasesTotalCents,
-      usageTotalCents,
+      purchasesTotal: purchasesTotalCents / 100,
+      totalUsageCredits: usageTotalCredits,
     };
   }, [transactions]);
 
@@ -95,8 +97,8 @@ export function TransactionsClient({ initialTransactions, usersForFilter, compan
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <StatCard title="Total Purchases" value={formatNumber(metrics.totalPurchases)} />
-        <StatCard title="Total Purchase Amount" value={formatCurrency(metrics.purchasesTotalCents / 100)} />
-        <StatCard title="Total Usage Amount" value={formatCurrency(metrics.usageTotalCents / 100)} />
+        <StatCard title="Total Purchase Amount" value={formatCurrency(metrics.purchasesTotal)} />
+        <StatCard title="Total Credits Used" value={formatNumber(metrics.totalUsageCredits)} />
       </div>
 
       <Card>
@@ -127,7 +129,7 @@ export function TransactionsClient({ initialTransactions, usersForFilter, compan
                     <TableHead><Button variant="ghost" onClick={() => requestSort('type')}>Type {getSortIndicator('type')}</Button></TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead><Button variant="ghost" onClick={() => requestSort('createdAt')}>Date {getSortIndicator('createdAt')}</Button></TableHead>
-                    <TableHead className="text-right"><Button variant="ghost" onClick={() => requestSort('amount')}>Amount {getSortIndicator('amount')}</Button></TableHead>
+                    <TableHead className="text-right"><Button variant="ghost" onClick={() => requestSort('originalAmount')}>Amount {getSortIndicator('originalAmount')}</Button></TableHead>
                 </TableRow></TableHeader>
                 <TableBody>
                     {loading ? <TableRow><TableCell colSpan={6} className="h-24 text-center">Loading data...</TableCell></TableRow> :
@@ -135,11 +137,15 @@ export function TransactionsClient({ initialTransactions, usersForFilter, compan
                     <TableRow key={tx.id}>
                         <TableCell className="font-medium">{tx.userEmail || `User ID: ${tx.userId}`}</TableCell>
                         <TableCell>{tx.company || 'N/A'}</TableCell>
-                        <TableCell><Badge variant={tx.type === 'purchase' ? 'success' : 'secondary'}>{tx.type}</Badge></TableCell>
+                        <TableCell><Badge variant={tx.type === 'credits_purchase' ? 'success' : 'secondary'}>{tx.type}</Badge></TableCell>
                         <TableCell>{tx.description}</TableCell>
                         <TableCell>{formatDate(new Date(tx.createdAt))}</TableCell>
-                        <TableCell className={`text-right font-medium ${tx.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {formatCurrency(tx.amount / 100)}
+                        <TableCell className={`text-right font-medium ${tx.type === 'credits_purchase' ? 'text-green-600' : 'text-red-600'}`}>
+                          {/* 👇 5. Display the original amount the customer was charged */}
+                          {new Intl.NumberFormat('en-US', {
+                            style: 'currency',
+                            currency: tx.originalCurrency || 'USD',
+                          }).format(tx.originalAmount / 100)}
                         </TableCell>
                     </TableRow>
                     ))}

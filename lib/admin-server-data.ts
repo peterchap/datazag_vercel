@@ -103,7 +103,7 @@ export async function fetchAdminOverviewStats() {
       db.select({ value: count() }).from(apiKeys),
       db.select({ value: count() }).from(transactions),
       db.select({ value: count() }).from(apiUsage),
-      db.select({ value: sum(transactions.amount) }).from(transactions).where(eq(transactions.type, 'purchase')),
+      db.select({ value: sum(transactions.amountInBaseCurrencyCents) }).from(transactions).where(eq(transactions.type, 'credits_purchase')),
       db.select({ value: count() }).from(adminRequests).where(eq(adminRequests.status, 'pending')),
       db.select({ value: count() }).from(discountCodes).where(eq(discountCodes.active, true)),
     ]);
@@ -276,10 +276,10 @@ export async function fetchAdminChartData() {
     const monthlyRevenue = await db
         .select({
             month: sql<string>`TO_CHAR(created_at, 'YYYY-MM')`,
-            revenue: sum(transactions.amount),
+            revenue: sum(transactions.amountInBaseCurrencyCents),
         })
         .from(transactions)
-        .where(eq(transactions.type, 'purchase'))
+        .where(eq(transactions.type, 'credits_purchase'))
         .groupBy(sql`TO_CHAR(created_at, 'YYYY-MM')`)
         .orderBy(sql`TO_CHAR(created_at, 'YYYY-MM')`)
         .limit(6);

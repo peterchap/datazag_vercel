@@ -69,14 +69,14 @@ export function UserDetailClient({ user, apiKeys, transactions, apiUsage }: User
             <CardHeader><CardTitle>Transaction History</CardTitle></CardHeader>
             <CardContent>
                <Table>
-                <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Type</TableHead><TableHead>Description</TableHead><TableHead className="text-right">Amount</TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Type</TableHead><TableHead>Description</TableHead><TableHead className="text-right">Credits</TableHead></TableRow></TableHeader>
                 <TableBody>
                   {transactions.length > 0 ? transactions.map(tx => (
                     <TableRow key={tx.id}>
                       <TableCell>{formatDate(new Date(tx.createdAt))}</TableCell>
-                      <TableCell><Badge variant={tx.type === 'purchase' ? 'success' : 'secondary'}>{tx.type}</Badge></TableCell>
+                      <TableCell><Badge variant={tx.type === 'credits_purchase' ? 'success' : 'secondary'}>{tx.type}</Badge></TableCell>
                       <TableCell>{tx.description}</TableCell>
-                      <TableCell className={`text-right font-medium ${tx.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>{tx.amount >= 0 ? '+' : ''}{formatNumber(tx.amount)}</TableCell>
+                      <TableCell className={`text-right font-medium ${tx.credits >= 0 ? 'text-green-600' : 'text-red-600'}`}>{tx.credits >= 0 ? '+' : ''}{formatNumber(tx.credits)}</TableCell>
                     </TableRow>
                   )) : <TableRow><TableCell colSpan={4} className="text-center h-24">No transactions found.</TableCell></TableRow>}
                 </TableBody>

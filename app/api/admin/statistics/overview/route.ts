@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/drizzle';
 import { users, apiKeys, transactions, apiUsage, adminRequests, discountCodes } from '@/shared/schema';
-import { count, sum, eq } from 'drizzle-orm';
+import { eq, desc, sql, count, sum } from 'drizzle-orm';
 import { USER_ROLES } from '@/shared/schema';
 
 // This is now an API Route Handler for the GET method.
@@ -29,7 +29,7 @@ export async function GET() {
         db.select({ value: count() }).from(apiKeys),
         db.select({ value: count() }).from(transactions),
         db.select({ value: count() }).from(apiUsage),
-        db.select({ value: sum(transactions.amount) }).from(transactions).where(eq(transactions.type, 'purchase')),
+        db.select({ value: sum(transactions.amountInBaseCurrencyCents) }).from(transactions).where(eq(transactions.type, 'credits_purchase')),
         db.select({ value: count() }).from(adminRequests).where(eq(adminRequests.status, 'pending')),
         db.select({ value: count() }).from(discountCodes).where(eq(discountCodes.active, true))
     ]);

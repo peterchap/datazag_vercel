@@ -5,43 +5,47 @@ import { creditBundles } from '@/shared/schema';
 import { eq } from 'drizzle-orm';
 import Stripe from 'stripe';
 
-// The unused redisSyncService import has been removed.
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
-// This is the final, unified API route for creating a Stripe checkout session.
 export async function POST(req: NextRequest) {
-  // 1. Authentication is now handled with the modern auth() helper.
   const session = await auth();
   if (!session?.user?.id || !session.user.email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  if (!stripe) {
+    return NextResponse.json({ error: 'Stripe is not configured.' }, { status: 500 });
+  }
+
   try {
-    const { bundleId, currency, amount } = await req.json();
-    if (!bundleId || !currency || amount === undefined) {
-      return NextResponse.json({ error: 'bundleId, currency, and amount are required' }, { status: 400 });
+    // 1. Get the bundleId and the TARGET currency from the client
+    const { bundleId, currency } = await req.json();
+    if (!bundleId || !currency) {
+      return NextResponse.json({ error: 'bundleId and currency are required' }, { status: 400 });
     }
 
-    // 2. Database queries now use the type-safe Drizzle ORM.
+    // 2. Fetch the bundle's BASE price from the database
     const bundle = await db.query.creditBundles.findFirst({
       where: eq(creditBundles.id, bundleId),
     });
-    if (!bundle) {
-      return NextResponse.json({ error: 'Credit bundle not found' }, { status: 404 });
-    }
-    
-    // Handle Free Bundles directly
-    if (amount === 0) {
-      // (Your logic for free bundles can be moved here)
-      // For brevity, we'll assume a paid bundle for this example.
-    }
 
-    if (!stripe) {
-      return NextResponse.json({ error: 'Stripe is not configured.' }, { status: 500 });
+    if (!bundle || bundle.price === undefined) {
+      return NextResponse.json({ error: 'Credit bundle not found or price is missing' }, { status: 404 });
     }
+    const priceInUsdCents = bundle.price;
+
+    // 3. Fetch the latest exchange rates FROM YOUR OWN API
     const appBaseUrl = process.env.APP_BASE_URL || 'http://localhost:3001';
-    
-    // 3. The Stripe session creation logic remains the same.
+    const ratesResponse = await fetch(`${appBaseUrl}/api/exchange-rates`);
+    if (!ratesResponse.ok) throw new Error('Could not fetch exchange rates.');
+    const { rates } = await ratesResponse.json();
+    const conversionRate = rates[currency];
+    if (!conversionRate) throw new Error(`Invalid or unsupported currency: ${currency}`);
+
+    // 4. Calculate the final price in the target currency's cents
+    const amountInLocalCurrencyCents = Math.round(priceInUsdCents * conversionRate);
+
+    // 5. Create the Stripe session with the CALCULATED amount and FULL metadata
     const stripeSession = await stripe.checkout.sessions.create({
       mode: 'payment',
       success_url: `${appBaseUrl}/credits?success=1`,
@@ -49,22 +53,23 @@ export async function POST(req: NextRequest) {
       line_items: [{
         quantity: 1,
         price_data: {
-          currency: currency,
-          unit_amount: amount,
+          currency: currency.toLowerCase(), // Stripe expects lowercase
+          unit_amount: amountInLocalCurrencyCents,
           product_data: { name: `${bundle.name} Credits` },
         },
       }],
-      customer_email: session.user.email || undefined,
-      metadata: { 
-        userId: session.user.id, 
-        credits: String(bundle.credits), 
-        bundleName: bundle.name, 
-        amountPaid: String(amount),
-        currencyPaid: currency
+      customer_email: session.user.email,
+      // This metadata is now rich with all the info your webhook needs
+      metadata: {
+        userId: session.user.id,
+        credits: String(bundle.credits),
+        amountInBaseCurrencyCents: String(priceInUsdCents),
+        originalAmount: String(amountInLocalCurrencyCents),
+        originalCurrency: currency,
+        exchangeRateAtPurchase: String(conversionRate)
       },
     });
 
-    // 4. Responses are now handled with NextResponse.json().
     return NextResponse.json({ url: stripeSession.url });
 
   } catch (err: any) {

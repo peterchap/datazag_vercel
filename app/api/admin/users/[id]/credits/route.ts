@@ -8,7 +8,7 @@ import { redisSyncService } from '@/lib/redis-sync-client';
 
 export async function POST(
   req: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  context: { params: { id: string } }
 ) {
   const session = await auth();
 
@@ -17,8 +17,7 @@ export async function POST(
   }
 
   try {
-    const params = await context.params;
-    const userId = params.id; // This is now a string (text ID)
+    const { id: userId } = context.params; // This is now a string (text ID)
     const { amount } = await req.json();
 
     if (!amount || typeof amount !== 'number' || amount <= 0) {
@@ -41,18 +40,22 @@ export async function POST(
         type: 'credit',
         amount: amount,
         description: `Manual credit grant by admin ${session.user.email}`,
-        status: 'success',
-    });
-    
+        status: 'completed',
+    } as any);
     // Updated to use the new Redis sync method
-    redisSyncService.updateUserCredits(userId, newBalance)
+    redisSyncService.updateCredits(userId, newBalance)
       .then(results => {
-        const successCount = results.filter(r => r.success).length;
+        const successCount: number = (results as RedisSyncResult[]).filter((r: RedisSyncResult) => r.success).length;
         const totalKeys = results.length;
         console.log(`[Redis Sync] Successfully synced credits for ${successCount}/${totalKeys} API keys for user ${userId}.`);
         
         // Log any failures
-        results.forEach((result, index) => {
+        interface RedisSyncResult {
+          success: boolean;
+          message?: string;
+        }
+
+        results.forEach((result: RedisSyncResult, index: number) => {
           if (!result.success) {
             console.error(`[Redis Sync Failed] API key ${index} for user ${userId}:`, result.message);
           }

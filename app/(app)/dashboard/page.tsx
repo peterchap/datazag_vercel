@@ -1,28 +1,48 @@
-import { auth } from "@/lib/auth"; // Assuming this is your NextAuth.js config export
+import { auth } from "@/lib/auth";
+import { db } from '@/lib/drizzle';
 import { fetchUserData, fetchUserTransactions } from "@/lib/server-data";
-import { DashboardClient } from "@/components/dashboard-client"; // Import the client component you have open
+import { DashboardClient } from "@/components/dashboard-client";
 import { redirect } from "next/navigation";
-import type { User } from "@/shared/schema";
+import { User, creditBundles } from "@/shared/schema";
 
-// This is an async Server Component. It runs only on the server.
 export default async function DashboardPage() {
   const session = await auth();
-
-  // Redirect if no session is found. This is a safeguard, though middleware should handle it.
+  
   if (!session?.user?.id) {
     redirect("/login");
   }
 
-  // 1. Fetch the initial data securely on the server before the page loads.
+  // Fetch all necessary initial data
   const initialUserData = await fetchUserData(session.user.id);
   const initialTransactions = await fetchUserTransactions(session.user.id);
+  // 👇 You are correctly fetching the bundles here
+  const bundles = await db
+    .select({
+      id: creditBundles.id,
+      name: creditBundles.name,
+      description: creditBundles.description,
+      credits: creditBundles.credits,
+      price_in_usd_cents: creditBundles.price, // Select 'price' and rename it
+      popular: creditBundles.popular,
+    })
+    .from(creditBundles);
 
-  // 2. Return the CLIENT component (your currently open file) and pass the fetched data as props.
-  //    This is a valid JSX element, which is what Next.js expects a page to export.
+  // Normalize nullable fields to match CreditBundle type
+  const normalizedBundles = bundles.map((b) => ({
+    id: b.id,
+    name: b.name,
+    credits: b.credits,
+    description: b.description ?? "",
+    price_in_usd_cents: b.price_in_usd_cents,
+    popular: b.popular ?? false,
+  }));
+
   return (
     <DashboardClient
       initialUserData={initialUserData as User | null}
       initialTransactions={initialTransactions}
+      // 👇 You just need to pass the fetched bundles as a prop
+      initialBundles={normalizedBundles}
     />
   );
 }

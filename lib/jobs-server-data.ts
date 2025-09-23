@@ -13,7 +13,7 @@ export async function fetchUserUploadHistory(userId: string): Promise<UploadJob[
     // Note: You will need to create an `upload_jobs` table in your database
     // with columns like id, userId, fileName, description, region, status, jobId, createdAt
     const jobHistory = await db.query.uploadJobs.findMany({
-      where: eq(uploadJobs.userId, parseInt(userId, 10)),
+      where: eq(uploadJobs.userId, userId),
       orderBy: [desc(uploadJobs.createdAt)],
       limit: 50,
     });

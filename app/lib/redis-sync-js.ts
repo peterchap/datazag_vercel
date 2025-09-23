@@ -96,6 +96,10 @@ export class RedisSyncService {
     return this.makeRequest('GET', `/redis/api-key/${apiKey}`);
   }
 
+  async dump(): Promise<any> {
+    return this.makeRequest('GET', '/redis/dump');
+  }
+
   async updateCredits(userId: string | number, credits: number): Promise<any> {
     return this.makeRequest('PATCH', `/redis/credits/${userId}`, { credits });
   }

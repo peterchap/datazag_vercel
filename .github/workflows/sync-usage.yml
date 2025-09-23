@@ -1,0 +1,150 @@
+# .github/workflows/sync-usage.yml
+name: Sync API Usage Data
+
+on:
+  schedule:
+    # Run daily at 1 AM UTC (adjust for your timezone)
+    - cron: "0 1 * * *"
+  workflow_dispatch: # Allow manual triggering
+    inputs:
+      date:
+        description: "Date to sync (YYYYMMDD format)"
+        required: false
+        type: string
+
+jobs:
+  sync-usage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15 # Prevent hanging jobs
+
+    steps:
+      - name: Wait for random delay
+        run: |
+          # Add random delay (0-300 seconds) to avoid hitting Vercel all at once
+          delay=$((RANDOM % 300))
+          echo "Waiting ${delay} seconds to avoid peak load..."
+          sleep $delay
+
+      - name: Check Vercel App Health
+        run: |
+          # Verify app is responding before trying sync
+          response=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.VERCEL_APP_URL }}/api/health" --max-time 30)
+          if [ "$response" != "200" ]; then
+            echo "App health check failed with status: $response"
+            exit 1
+          fi
+          echo "App is healthy, proceeding with sync..."
+
+      - name: Sync API Usage
+        id: sync
+        run: |
+          # Prepare date parameter
+          if [ -n "${{ github.event.inputs.date }}" ]; then
+            DATE_PARAM="?date=${{ github.event.inputs.date }}"
+          else
+            DATE_PARAM=""
+          fi
+
+          # Run the sync with retries
+          for attempt in 1 2 3; do
+            echo "Sync attempt $attempt..."
+            
+            response=$(curl -X POST "${{ secrets.VERCEL_APP_URL }}/api/cron/sync-usage${DATE_PARAM}" \
+              -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+              -H "Content-Type: application/json" \
+              -H "User-Agent: GitHub-Actions-Cron/1.0" \
+              --max-time 300 \
+              --write-out "HTTPSTATUS:%{http_code}" \
+              --silent --show-error)
+            
+            # Extract HTTP status and body
+            http_code=$(echo "$response" | grep -o "HTTPSTATUS:[0-9]*" | cut -d: -f2)
+            body=$(echo "$response" | sed -E 's/HTTPSTATUS:[0-9]*$//')
+            
+            echo "HTTP Status: $http_code"
+            echo "Response: $body"
+            
+            # Check if successful
+            if [ "$http_code" = "200" ]; then
+              echo "Sync completed successfully"
+              echo "result=$body" >> $GITHUB_OUTPUT
+              exit 0
+            else
+              echo "Sync failed with status $http_code. Attempt $attempt/3"
+              if [ $attempt -eq 3 ]; then
+                echo "All sync attempts failed"
+                exit 1
+              fi
+              sleep 30  # Wait before retry
+            fi
+          done
+
+      - name: Validate Sync Results
+        if: success()
+        run: |
+          # Parse and validate the sync results
+          result='${{ steps.sync.outputs.result }}'
+
+          # Check if result contains expected fields
+          if echo "$result" | jq -e '.success and .synced_records != null' > /dev/null 2>&1; then
+            synced=$(echo "$result" | jq -r '.synced_records')
+            errors=$(echo "$result" | jq -r '.errors')
+            echo "✅ Validation passed: $synced records synced, $errors errors"
+            
+            # Alert if there are many errors
+            if [ "$errors" -gt 10 ]; then
+              echo "⚠️ Warning: High error count ($errors)"
+            fi
+          else
+            echo "❌ Validation failed: Invalid response format"
+            exit 1
+          fi
+
+      - name: Send notification on failure
+        if: failure()
+        run: |
+          # You can add notification logic here
+          # For example, send to Slack, Discord, or email
+          echo "❌ Sync job failed. Consider checking logs and app status."
+
+          # Example: Simple webhook notification (optional)
+          # curl -X POST "${{ secrets.WEBHOOK_URL }}" \
+          #   -H "Content-Type: application/json" \
+          #   -d '{"text": "Usage sync job failed", "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}'
+
+  # Health check job - runs separately to verify system is working
+  health-check:
+    runs-on: ubuntu-latest
+    needs: sync-usage
+    if: always() # Run even if sync fails
+
+    steps:
+      - name: System Health Check
+        run: |
+          # Check critical endpoints
+          endpoints=(
+            "/api/health"
+            "/api/cron/sync-usage"
+            "/redis/sync-status"
+          )
+
+          for endpoint in "${endpoints[@]}"; do
+            if [[ "$endpoint" == "/redis/sync-status" ]]; then
+              # This would be your Redis API URL
+              url="${{ secrets.REDIS_API_URL }}${endpoint}"
+              auth_header="X-Internal-Token: ${{ secrets.INTERNAL_API_TOKEN }}"
+            else
+              url="${{ secrets.VERCEL_APP_URL }}${endpoint}"
+              auth_header="Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+            fi
+            
+            echo "Checking $endpoint..."
+            status=$(curl -s -o /dev/null -w "%{http_code}" "$url" -H "$auth_header" --max-time 30)
+            
+            if [ "$status" = "200" ]; then
+              echo "✅ $endpoint: OK"
+            else
+              echo "❌ $endpoint: Failed ($status)"
+            fi
+          done
+            echo "Health check completed."

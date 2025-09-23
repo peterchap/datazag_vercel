@@ -1,5 +1,5 @@
 {
-  "id": "9d115df3-282c-4e26-ac04-bb60276a15f9",
+  "id": "dcc867b9-9ef9-4bdb-91b0-84172fa924cb",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -707,21 +707,17 @@
           "primaryKey": false,
           "notNull": true
         },
-        "api_key_id": {
-          "name": "api_key_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
         "type": {
           "name": "type",
-          "type": "text",
+          "type": "transaction_type",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
         },
-        "amount": {
-          "name": "amount",
-          "type": "integer",
+        "status": {
+          "name": "status",
+          "type": "transaction_status",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
         },
@@ -731,9 +727,46 @@
           "primaryKey": false,
           "notNull": true
         },
-        "status": {
-          "name": "status",
+        "amount_in_base_currency_cents": {
+          "name": "amount_in_base_currency_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "original_amount": {
+          "name": "original_amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "original_currency": {
+          "name": "original_currency",
           "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "exchange_rate_at_purchase": {
+          "name": "exchange_rate_at_purchase",
+          "type": "numeric(10, 6)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payment_method": {
+          "name": "payment_method",
+          "type": "payment_method",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "gateway_customer_id": {
+          "name": "gateway_customer_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "credits": {
+          "name": "credits",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true
         },
@@ -764,19 +797,6 @@
             "id"
           ],
           "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "transactions_api_key_id_api_keys_id_fk": {
-          "name": "transactions_api_key_id_api_keys_id_fk",
-          "tableFrom": "transactions",
-          "tableTo": "api_keys",
-          "columnsFrom": [
-            "api_key_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
@@ -1163,7 +1183,37 @@
       "uniqueConstraints": {}
     }
   },
-  "enums": {},
+  "enums": {
+    "public.payment_method": {
+      "name": "payment_method",
+      "schema": "public",
+      "values": [
+        "stripe",
+        "paypal",
+        "crypto",
+        "manual"
+      ]
+    },
+    "public.transaction_status": {
+      "name": "transaction_status",
+      "schema": "public",
+      "values": [
+        "pending",
+        "completed",
+        "failed"
+      ]
+    },
+    "public.transaction_type": {
+      "name": "transaction_type",
+      "schema": "public",
+      "values": [
+        "credits_purchase",
+        "api_usage",
+        "refund",
+        "subscription"
+      ]
+    }
+  },
   "schemas": {},
   "sequences": {},
   "_meta": {

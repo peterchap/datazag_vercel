@@ -1,15 +1,7 @@
 import { defineConfig } from 'drizzle-kit';
 import * as dotenv from 'dotenv';
 
-const envFile = process.env.NODE_ENV === 'production' ? '.env.production' : '.env.development';
-dotenv.config({ path: envFile });
-// --- THIS IS THE FIX ---
-// This code explicitly finds and loads your .env.local file, ensuring that
-// drizzle-kit always uses the correct DATABASE_URL for your current environment.
-dotenv.config({ path: '.env' });
-dotenv.config({
-  path: '.env.development',
-});
+dotenv.config({ path: '.env.production' });
 
 
 

@@ -1,17 +1,17 @@
 'use client';
 
-import { useState, useMemo, ReactNode } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
-import { formatDate, formatNumber } from "@/lib/utils";
 import { useCurrency } from "@/components/currency-selector";
+import { ExportableTable, TableColumn } from '@/components/exportable-table';
+import { Badge } from "@/components/ui/badge";
 import type { Transaction, User } from "@/shared/schema";
-import { Download, Loader2, ArrowUpDown, ExternalLink } from "lucide-react";
+import { Loader2, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { format } from "date-fns";
 import Link from "next/link";
 
 interface BillingClientProps {
@@ -19,23 +19,28 @@ interface BillingClientProps {
   initialPaymentHistory: Transaction[];
 }
 
-type SortKey = keyof Transaction;
-
 export function BillingClient({ user, initialPaymentHistory }: BillingClientProps) {
   const { formatPrice } = useCurrency();
-  const [loadingInvoiceId, setLoadingInvoiceId] = useState<number | null>(null);
+  const [loadingInvoiceId, setLoadingInvoiceId] = useState<string | null>(null);
   const [isPortalLoading, setIsPortalLoading] = useState(false);
-  const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'ascending' | 'descending' }>({ key: 'createdAt', direction: 'descending' });
   const { toast } = useToast();
 
   const isStripeCustomer = !!user?.stripeCustomerId;
 
   const handleDownloadInvoice = async (transaction: Transaction) => {
-    const sessionId = (transaction.metadata as any)?.stripeSessionId;
+    // Based on your console output, the Stripe session ID is in transaction.id
+    // But we should also check metadata as a fallback for compatibility
+    const sessionId = transaction.id && transaction.id.toString().startsWith('cs_') 
+      ? transaction.id 
+      : (transaction.metadata as any)?.stripeSessionId;
+    
+    console.log('Attempting to download invoice for sessionId:', sessionId);
+    
     if (!sessionId) {
       toast({ title: "Invoice Not Available", description: "This transaction does not have a downloadable invoice.", variant: "destructive" });
       return;
     }
+    
     setLoadingInvoiceId(transaction.id);
     try {
       const response = await apiRequest("GET", `/api/invoices/${sessionId}`);
@@ -73,55 +78,130 @@ export function BillingClient({ user, initialPaymentHistory }: BillingClientProp
     }
   };
 
-  const sortedPaymentHistory = useMemo(() => {
-    let sortableItems = [...initialPaymentHistory];
-    if (sortConfig !== null) {
-      sortableItems.sort((a, b) => {
-        const valA = a[sortConfig.key];
-        const valB = b[sortConfig.key];
-        if (valA === null || valA === undefined) return 1;
-        if (valB === null || valB === undefined) return -1;
-        if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
-        if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
-        return 0;
-      });
+  // Helper function to get status badge variant
+  const getStatusVariant = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'completed':
+      case 'paid':
+        return 'default';
+      case 'pending':
+        return 'secondary';
+      case 'failed':
+      case 'cancelled':
+        return 'destructive';
+      default:
+        return 'outline';
     }
-    return sortableItems;
-  }, [initialPaymentHistory, sortConfig]);
-
-  const requestSort = (key: SortKey) => {
-    let direction: 'ascending' | 'descending' = 'ascending';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
-      direction = 'descending';
-    }
-    setSortConfig({ key, direction });
-  };
-  
-  const getSortIndicator = (key: SortKey): ReactNode => {
-    if (!sortConfig || sortConfig.key !== key) return <ArrowUpDown className="ml-2 h-4 w-4" />;
-    return sortConfig.direction === 'ascending' ? <span className="ml-2">▲</span> : <span className="ml-2">▼</span>;
   };
 
-  const downloadCSV = () => {
-    const headers = ["ID", "Date", "Description", "Type", "Status", "Amount", "Credits"];
-    const rows = sortedPaymentHistory.map(p => [
-      p.id,
-      formatDate(new Date(p.createdAt)),
-      `"${p.description}"`,
-      p.type,
-      p.status,
-      p.type === 'purchase' ? (p.metadata as any)?.amountPaid / 100 : 'N/A',
-      p.type === 'purchase' || p.type === 'credit' ? p.amount : 'N/A'
-    ].join(','));
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "payment_history.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  // Define columns for the enhanced table
+  const paymentColumns: TableColumn<Transaction>[] = [
+    {
+      key: 'id',
+      header: 'Transaction ID',
+      accessor: (transaction) => (
+        <span className="font-mono text-sm">{transaction.id?.slice(-8) || 'N/A'}</span>
+      ),
+      csvAccessor: (transaction) => transaction.id || 'N/A',
+    },
+    {
+      key: 'description',
+      header: 'Description',
+      accessor: (transaction) => (
+        <span className="max-w-[200px] truncate block">
+          {transaction.description || 'No description'}
+        </span>
+      ),
+      csvAccessor: (transaction) => transaction.description || 'No description',
+    },
+    {
+      key: 'amountInBaseCurrencyCents',
+      header: 'Amount',
+      accessor: (transaction) => (
+        <span className="font-semibold">
+          {formatPrice(Math.abs((transaction.amountInBaseCurrencyCents ?? 0) / 100))}
+        </span>
+      ),
+      csvAccessor: (transaction) => Math.abs((transaction.amountInBaseCurrencyCents ?? 0) / 100).toFixed(2),
+      className: 'text-right',
+    },
+    {
+      key: 'credits',
+      header: 'Credits',
+      accessor: (transaction) => (
+        transaction.credits ? (
+          <span className="text-blue-600 font-medium">
+            +{new Intl.NumberFormat().format(transaction.credits)}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        )
+      ),
+      csvAccessor: (transaction) => transaction.credits || 0,
+      className: 'text-right',
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      accessor: (transaction) => (
+        <Badge variant={getStatusVariant(transaction.status || 'pending')}>
+          {(transaction.status || 'pending').charAt(0).toUpperCase() + (transaction.status || 'pending').slice(1)}
+        </Badge>
+      ),
+      csvAccessor: (transaction) => transaction.status || 'pending',
+    },
+    {
+      key: 'createdAt',
+      header: 'Date',
+      accessor: (transaction) => (
+        transaction.createdAt ? (
+          <span className="text-sm">
+            {format(new Date(transaction.createdAt), 'MMM dd, yyyy')}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        )
+      ),
+      csvAccessor: (transaction) => 
+        transaction.createdAt ? format(new Date(transaction.createdAt), 'yyyy-MM-dd') : 'N/A',
+      className: 'text-right',
+    },
+    {
+      key: 'metadata',
+      header: 'Invoice',
+      accessor: (transaction) => {
+        // Check if transaction ID is a Stripe session ID or if there's one in metadata
+        const sessionId = transaction.id && transaction.id.toString().startsWith('cs_') 
+          ? transaction.id 
+          : (transaction.metadata as any)?.stripeSessionId;
+          
+        const hasInvoice = !!sessionId;
+        
+        return hasInvoice ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleDownloadInvoice(transaction)}
+            disabled={loadingInvoiceId === transaction.id}
+          >
+            {loadingInvoiceId === transaction.id ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              'Download'
+            )}
+          </Button>
+        ) : (
+          <span className="text-muted-foreground text-sm">Not available</span>
+        );
+      },
+      csvAccessor: (transaction) => {
+        const sessionId = transaction.id && transaction.id.toString().startsWith('cs_') 
+          ? transaction.id 
+          : (transaction.metadata as any)?.stripeSessionId;
+        return sessionId ? 'Available' : 'Not available';
+      },
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -149,7 +229,6 @@ export function BillingClient({ user, initialPaymentHistory }: BillingClientProp
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  {/* The button is now disabled with a helpful tooltip if the user is not a customer */}
                   <div className="w-full">
                     <Button 
                       className="w-full" 
@@ -182,57 +261,16 @@ export function BillingClient({ user, initialPaymentHistory }: BillingClientProp
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle>Payment History</CardTitle>
-            <CardDescription>A record of all your purchases and credit grants.</CardDescription>
-          </div>
-          <Button variant="outline" onClick={downloadCSV}><Download className="h-4 w-4 mr-2" />Download CSV</Button>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead><Button variant="ghost" onClick={() => requestSort('createdAt')}>Date {getSortIndicator('createdAt')}</Button></TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead className="text-right">Credits Added</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead className="text-right">Invoice</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sortedPaymentHistory.map((payment) => {
-                  const stripeSessionId = (payment.metadata as any)?.stripeSessionId;
-                  const amountPaid = (payment.metadata as any)?.amountPaid;
-                  
-                  return (
-                  <TableRow key={payment.id}>
-                    <TableCell>{formatDate(new Date(payment.createdAt))}</TableCell>
-                    <TableCell className="font-medium">{payment.description}</TableCell>
-                    <TableCell className="text-right font-semibold text-green-600">
-                      {/* FIX: Removed the '+' sign for a cleaner look */}
-                      {payment.type === 'purchase' || payment.type === 'credit' ? `${formatNumber(payment.amount)}` : 'N/A'}
-                    </TableCell>
-                    <TableCell className="text-right font-semibold">
-                      {payment.type === 'purchase' ? formatPrice(amountPaid || 0) : 'N/A'}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {/* FIX: The button is now disabled for non-purchase transactions to prevent 404s */}
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => handleDownloadInvoice(payment)}
-                        disabled={loadingInvoiceId === payment.id || payment.type !== 'purchase'}
-                        title={payment.type !== 'purchase' ? "No invoice available for this transaction" : "Download Invoice"}
-                      >
-                        {loadingInvoiceId === payment.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                )})
-              }
-            </TableBody>
-          </Table>
+        <CardContent className="pt-6">
+          <ExportableTable
+            data={initialPaymentHistory}
+            columns={paymentColumns}
+            title="Payment History"
+            dateField="createdAt"
+            filename="payment_history"
+            emptyMessage="No payment history found"
+            showDateFilters={true}
+          />
         </CardContent>
       </Card>
     </div>

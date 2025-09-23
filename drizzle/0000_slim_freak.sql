@@ -1,3 +1,21 @@
+DO $$ BEGIN
+ CREATE TYPE "public"."payment_method" AS ENUM('stripe', 'paypal', 'crypto', 'manual');
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ CREATE TYPE "public"."transaction_status" AS ENUM('pending', 'completed', 'failed');
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+ CREATE TYPE "public"."transaction_type" AS ENUM('credits_purchase', 'api_usage', 'refund', 'subscription');
+EXCEPTION
+ WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "account" (
 	"userId" text NOT NULL,
 	"type" text NOT NULL,
@@ -100,11 +118,16 @@ CREATE TABLE IF NOT EXISTS "subscription_plans" (
 CREATE TABLE IF NOT EXISTS "transactions" (
 	"id" text PRIMARY KEY NOT NULL,
 	"user_id" text NOT NULL,
-	"api_key_id" integer,
-	"type" text NOT NULL,
-	"amount" integer NOT NULL,
+	"type" "transaction_type" NOT NULL,
+	"status" "transaction_status" NOT NULL,
 	"description" text NOT NULL,
-	"status" text NOT NULL,
+	"amount_in_base_currency_cents" integer NOT NULL,
+	"original_amount" integer NOT NULL,
+	"original_currency" text NOT NULL,
+	"exchange_rate_at_purchase" numeric(10, 6) NOT NULL,
+	"payment_method" "payment_method" NOT NULL,
+	"gateway_customer_id" text,
+	"credits" integer NOT NULL,
 	"metadata" json,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
@@ -234,12 +257,6 @@ END $$;
 --> statement-breakpoint
 DO $$ BEGIN
  ALTER TABLE "transactions" ADD CONSTRAINT "transactions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
-EXCEPTION
- WHEN duplicate_object THEN null;
-END $$;
---> statement-breakpoint
-DO $$ BEGIN
- ALTER TABLE "transactions" ADD CONSTRAINT "transactions_api_key_id_api_keys_id_fk" FOREIGN KEY ("api_key_id") REFERENCES "public"."api_keys"("id") ON DELETE no action ON UPDATE no action;
 EXCEPTION
  WHEN duplicate_object THEN null;
 END $$;

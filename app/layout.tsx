@@ -1,8 +1,11 @@
 import { Inter, Outfit } from 'next/font/google';
+import { CurrencyProvider } from '@/components/CurrencyProvider'; // Adjust path if needed
+import { Toaster } from "@/components/ui/toaster"
 import { auth } from '@/lib/auth'
 import { Providers } from './providers';
 import './globals.css';
 import type { Metadata } from 'next';
+import { Currency } from 'lucide-react';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -26,9 +29,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" className={`${inter.variable} ${outfit.variable}`} suppressHydrationWarning>
       <body>
-        <Providers session={session}>
-          {children}
-        </Providers>
+
+        <CurrencyProvider>
+          <Toaster />
+          <Providers session={session}>
+            {children}
+          </Providers>
+        </CurrencyProvider>
       </body>
     </html>
   );

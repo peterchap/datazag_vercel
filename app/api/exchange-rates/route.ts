@@ -1,45 +1,91 @@
 import { NextResponse } from 'next/server';
 
-// This is a Route Handler that runs on the server.
-export async function GET() {
+const API_KEY = process.env.EXCHANGERATE_API_KEY;
+
+interface ExchangeRateSuccessResponse {
+  result: 'success';
+  conversion_rates: Record<string, number>;
+}
+
+interface ExchangeRateErrorResponse {
+  result: 'error';
+}
+
+type ExchangeRateAPIResponse = ExchangeRateSuccessResponse | ExchangeRateErrorResponse;
+
+type SupportedCode = [string, string];
+
+interface CodesSuccessResponse {
+  result: 'success';
+  supported_codes: SupportedCode[];
+}
+
+interface CodesErrorResponse {
+  result: 'error';
+}
+
+type CodesAPIResponse = CodesSuccessResponse | CodesErrorResponse;
+
+interface Currency {
+  code: string;
+  name: string;
+}
+
+interface SuccessPayload {
+  success: true;
+  rates: Record<string, number>;
+  currencies: Currency[];
+}
+
+interface ErrorPayload {
+  success: false;
+  error: string;
+}
+
+type ApiResponsePayload = SuccessPayload | ErrorPayload;
+
+export async function GET(): Promise<NextResponse<ApiResponsePayload>> {
+  if (!API_KEY) {
+    return NextResponse.json<ErrorPayload>({ success: false, error: 'API key not configured.' }, { status: 500 });
+  }
+
+  // URLs for both API endpoints
+  const ratesUrl: string = `https://v6.exchangerate-api.com/v6/${API_KEY}/latest/USD`;
+  const codesUrl: string = `https://v6.exchangerate-api.com/v6/${API_KEY}/codes`;
+
   try {
-    // We add { cache: 'no-store' } to ensure this fetch is always live
-    // and not cached by the Next.js Data Cache.
-    const response = await fetch('https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml', {
-      cache: 'no-store' 
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch exchange rates from ECB.');
-    }
-    const xmlText = await response.text();
+    // Use Promise.all to fetch both simultaneously for speed
+    const [ratesResponse, codesResponse]: [Response, Response] = await Promise.all([
+      fetch(ratesUrl, { next: { revalidate: 3600 } }), // Cache rates for 1 hour
+      fetch(codesUrl, { next: { revalidate: 86400 } })  // Cache codes for 1 day
+    ]);
 
-    // --- Simple XML Parsing ---
-    const rates: { [key: string]: number } = { EUR: 1.0 };
-    const lines = xmlText.split('\n');
-    lines.forEach(line => {
-      const match = line.match(/currency='(\w+)' rate='([\d.]+)'/);
-      if (match) {
-        rates[match[1]] = parseFloat(match[2]);
-      }
-    });
-    // --- End Parsing ---
-
-    // Convert all rates to be relative to USD for easier use
-    const usdRate = rates['USD'];
-    if (!usdRate) {
-      throw new Error('USD rate not found in ECB data.');
+    if (!ratesResponse.ok || !codesResponse.ok) {
+      throw new Error('Failed to fetch data from ExchangeRate-API');
     }
 
-    const ratesVsUsd: { [key:string]: number } = {};
-    for (const currency in rates) {
-      ratesVsUsd[currency] = rates[currency] / usdRate;
+    const ratesData: ExchangeRateAPIResponse = await ratesResponse.json();
+    const codesData: CodesAPIResponse = await codesResponse.json();
+
+    if (ratesData.result === 'error' || codesData.result === 'error') {
+      throw new Error('One of the API calls returned an error');
     }
     
-    return NextResponse.json({ success: true, rates: ratesVsUsd });
+    // Format the currency list with full names
+    const currencyList: Currency[] = codesData.supported_codes.map(([code, name]: SupportedCode) => ({
+      code,
+      name
+    })).sort((a, b) => a.name.localeCompare(b.name));
 
-  } catch (error) {
-    console.error('Exchange rate API error:', error);
-    return NextResponse.json({ success: false, error: 'Could not fetch exchange rates.' }, { status: 500 });
+    // Combine both results into a single response
+    return NextResponse.json<SuccessPayload>({ 
+      success: true, 
+      rates: ratesData.conversion_rates,
+      currencies: currencyList 
+    });
+
+  } catch (error: any) {
+    console.error('Exchange rate API error:', error.message);
+    return NextResponse.json<ErrorPayload>({ success: false, error: 'Could not fetch exchange rates.' }, { status: 500 });
   }
 }

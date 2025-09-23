@@ -1,134 +1,205 @@
-// This service acts as a client for your external FastAPI Redis API.
-// It centralizes the logic for making secure, internal API calls.
+/**
+ * Redis Sync Service (TypeScript/ESM)
+ * This service handles synchronization between the customer portal
+ * and the Redis API's cache for API keys and credits.
+ */
 
-const CLOUD_RUN_API_URL = process.env.CLOUD_RUN_API_URL;
+import axios from 'axios';
+
+const REDIS_API_URL = process.env.REDIS_API_URL || process.env.BIGQUERY_API_URL || '';
 const INTERNAL_API_TOKEN = process.env.INTERNAL_API_TOKEN;
 
-/**
- * A helper function to make authenticated requests to the Cloud Run API.
- * @param method The HTTP method (e.g., 'PATCH', 'POST', 'DELETE').
- * @param endpoint The API endpoint path (e.g., '/redis/api-key/some_key').
- * @param data The JSON data to send in the request body.
- * @returns The response data from the API.
- */
-async function makeRequest(method: string, endpoint: string, body?: any) {
-  const url = `${process.env.REDIS_SYNC_URL}${endpoint}`;
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-  const internalToken = process.env.REDIS_SYNC_TOKEN;
-  if (internalToken) {
-    headers['x-internal-token'] = internalToken;
+if (!INTERNAL_API_TOKEN) {
+  console.warn('INTERNAL_API_TOKEN not configured - Redis sync will be disabled');
+}
+
+export class RedisSyncService {
+  async makeRequest(method: string, endpoint: string, data: any = null): Promise<any> {
+    if (!INTERNAL_API_TOKEN) {
+      console.warn('Redis sync skipped - INTERNAL_API_TOKEN not configured');
+      return { success: false, statusCode: 503, message: 'Redis sync not configured' };
+    }
+    if (!REDIS_API_URL) {
+      console.warn('Redis sync skipped - REDIS_API_URL not configured');
+      return { success: false, statusCode: 503, message: 'Redis sync not configured' };
+    }
+
+    try {
+      const response = await axios({
+        method,
+        url: `${REDIS_API_URL}${endpoint}`,
+        data,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-Token': INTERNAL_API_TOKEN
+        },
+        timeout: 10000 // 10 second timeout
+      });
+
+      return {
+        success: true,
+        statusCode: response.status,
+        message: response.data.message || 'Success',
+        data: response.data
+      };
+    } catch (error: any) {
+      console.warn(`Redis sync error (${method} ${endpoint}):`, error.message);
+      if (error.response) {
+        if (error.response.status === 404) {
+          return {
+            success: false,
+            statusCode: 404,
+            message: 'Redis sync endpoint not available'
+          };
+        }
+        return {
+          success: false,
+          statusCode: error.response.status,
+          message: error.response.data?.message || error.response.data?.detail || 'Redis sync failed'
+        };
+      } else if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+        return {
+          success: false,
+          statusCode: 502,
+          message: 'Cannot connect to Redis API'
+        };
+      } else if (error.code === 'ECONNABORTED') {
+        return {
+          success: false,
+          statusCode: 504,
+          message: 'Redis API timeout'
+        };
+      } else {
+        return {
+          success: false,
+          statusCode: 500,
+          message: 'Redis sync service error'
+        };
+      }
+    }
   }
 
-  try {
-    const res = await fetch(url, {
-      method,
-      headers,
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  /**
+   * Register a single API key in Redis
+   */
+  async registerApiKey(apiKeyData: any): Promise<any> {
+    return this.makeRequest('POST', '/redis/api-key', {
+      api_key: apiKeyData.key,
+      user_id: apiKeyData.user_id,
+      credits: apiKeyData.credits || 0,
+      active: apiKeyData.active !== false,
+      created_at: apiKeyData.created_at || new Date().toISOString(),
+      name: apiKeyData.name || 'Unnamed Key'
     });
+  }
 
-    if (!res.ok) {
-      // If the response is not OK, we try to get a detailed error message.
-      let errorMessage = `HTTP error! Status: ${res.status}`;
-      try {
-        const errorBody = await res.json();
-        // FastAPI sends detailed validation errors in a 'detail' array.
-        if (Array.isArray(errorBody.detail)) {
-          // Format the detailed error messages into a readable string.
-          const details = errorBody.detail.map((err: any) => 
-            `Field '${err.loc[1]}' - ${err.msg}`
-          ).join(', ');
-          errorMessage = `Validation failed: ${details}`;
-        } else if (errorBody.error) {
-          // Handle other generic error formats.
-          errorMessage = errorBody.error;
-        }
-      } catch (e) {
-        // If the body can't be parsed, we stick with the original HTTP error.
-      }
-      // Throw the detailed, informative error.
-      throw new Error(errorMessage);
-    }
+  /**
+   * Delete a single API key from Redis
+   */
+  async deleteApiKey(apiKey: string): Promise<any> {
+    return this.makeRequest('DELETE', `/redis/api-key/${apiKey}`);
+  }
 
-    // For non-error responses that might not have a body (like 204 No Content).
-    if (res.status === 204) {
-      return null;
-    }
-    
-    return await res.json();
+  /**
+   * Get information about a single API key
+   */
+  async getApiKey(apiKey: string): Promise<any> {
+    return this.makeRequest('GET', `/redis/api-key/${apiKey}`);
+  }
 
-  } catch (error: any) {
-    console.error(`Redis proxy client error (${method} ${endpoint}):`, error.message);
-    throw error;
+  /**
+   * Update credits for ALL API keys belonging to a user
+   * This is the main method called after credit purchases
+   */
+  async updateCredits(userId: string | number, credits: number): Promise<any> {
+    console.log(`[Redis Sync] Updating credits for user ${userId} to ${credits}`);
+    return this.makeRequest('PATCH', `/redis/user-credits/${userId}`, { credits });
+  }
+
+  /**
+   * Update credits for a specific API key
+   * Used when you need to update just one key
+   */
+  async updateApiKeyCredits(apiKey: string, credits: number): Promise<any> {
+    return this.makeRequest('PATCH', `/redis/credits/${apiKey}`, { credits });
+  }
+
+  /**
+   * Get credits for a specific user (from their first API key)
+   */
+  async getUserCredits(userId: string): Promise<any> {
+    return this.makeRequest('GET', `/redis/user-credits/${userId}`);
+  }
+
+  /**
+   * Get all API keys for a specific user
+   */
+  async getUserApiKeys(userId: string): Promise<any> {
+    return this.makeRequest('GET', `/redis/user-api-keys/${userId}`);
+  }
+
+  /**
+   * Get usage logs for a specific user and date (for sync)
+   */
+  async getUserUsageLogs(userId: string, date: string): Promise<any> {
+    return this.makeRequest('GET', `/redis/usage-logs/${userId}/${date}`);
+  }
+
+  /**
+   * Clear usage logs after successful sync
+   */
+  async clearUserUsageLogs(userId: string, date: string): Promise<any> {
+    return this.makeRequest('DELETE', `/redis/usage-logs/${userId}/${date}`);
+  }
+
+  /**
+   * Record API usage and decrement credits (called by public API)
+   */
+  async recordApiUsage(usageData: {
+    api_key: string;
+    endpoint: string;
+    credits_used: number;
+    response_time_ms?: number;
+    status?: string;
+    metadata?: any;
+  }): Promise<any> {
+    return this.makeRequest('POST', '/redis/record-usage', {
+      api_key: usageData.api_key,
+      endpoint: usageData.endpoint,
+      credits_used: usageData.credits_used,
+      response_time_ms: usageData.response_time_ms,
+      status: usageData.status || 'success',
+      metadata: usageData.metadata
+    });
+  }
+
+  /**
+   * Get current credit balance for an API key (fast check for public API)
+   */
+  async getApiKeyCredits(apiKey: string): Promise<any> {
+    return this.makeRequest('GET', `/redis/credits/${apiKey}`);
+  }
+
+  /**
+   * Check Redis sync status
+   */
+  async checkSyncStatus(): Promise<any> {
+    return this.makeRequest('GET', '/redis/sync-status');
+  }
+
+  /**
+   * Get Redis dump (for debugging)
+   */
+  async getRedisDump(): Promise<any> {
+    return this.makeRequest('GET', '/redis/dump');
+  }
+
+  /**
+   * Flush Redis database (use with caution!)
+   */
+  async flushRedisDb(): Promise<any> {
+    return this.makeRequest('POST', '/redis/flushdb');
   }
 }
 
-/**
- * This is the exported service object containing all the methods
- * for interacting with your Redis API.
- */
-export const redisSyncService = {
-  /**
-   * Updates credits for all API keys belonging to a user
-   * @param userId - The user whose API keys need credit updates
-   * @param credits - The new credit amount
-   */
-  async updateUserCredits(userId: string, credits: number) {
-    const { db } = await import('@/lib/drizzle');
-    const { apiKeys } = await import('@/shared/schema');
-    const { eq } = await import('drizzle-orm');
-    
-    const userApiKeys = await db.query.apiKeys.findMany({
-      where: eq(apiKeys.userId, userId),
-      columns: { key: true }
-    });
-
-    const updatePromises = userApiKeys.map(apiKey => 
-      this.updateApiKeyCredits(apiKey.key, credits)
-    );
-
-    return Promise.all(updatePromises);
-  },
-
-  /**
-   * Updates credits for a specific API key
-   * @param apiKey - The API key to update
-   * @param credits - The new credit amount
-   */
-  async updateApiKeyCredits(apiKey: string, credits: number) {
-    return makeRequest('PATCH', `/redis/api-key/${encodeURIComponent(apiKey)}/credits`, {
-      credits
-    });
-  },
-
-  /**
-   * Registers a new API key in Redis via the FastAPI service.
-   */
-  async registerApiKey(apiKeyData: { api_key: string; user_id: string; credits: number; active: boolean; }) {
-    return makeRequest('POST', '/redis/api-key', apiKeyData);
-  },
-
-  /**
-   * Deletes an API key from Redis by calling the FastAPI service.
-   * @param apiKey The API key string to delete.
-   */
-  async deleteApiKey(apiKey: string) {
-    return makeRequest('DELETE', `/redis/api-key/${encodeURIComponent(apiKey)}`);
-  },
-
-  /**
-   * Updates the active status of an API key
-   * @param apiKey - The API key to update
-   * @param active - Whether the key should be active
-   */
-  async updateApiKeyStatus(apiKey: string, active: boolean) {
-    return makeRequest('PATCH', `/redis/api-key/${encodeURIComponent(apiKey)}/status`, {
-      active
-    });
-  }
-};
-
-function registerApiKey(apiKeyData: { api_key: string; user_id: string; credits: number; active: boolean; }, arg1: { api_key: any; user_id: any; credits: any; active: any; }) {
-    throw new Error('Function not implemented.');
-  }
+export const redisSyncService = new RedisSyncService();

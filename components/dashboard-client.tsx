@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'; // Acknowledge dynamic nature
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileText, PlusCircle, Coins, LineChart, Wallet, Key, CreditCard } from "lucide-react";
@@ -10,14 +10,20 @@ import Link from "next/link";
 import StatCard from "@/components/StatCard";
 import ApiUsageChart from "@/components/api-usage-chart";
 import ActivityTable from "@/components/activity-table";
-import CreditBundles from "@/components/credit-bundles";
+import CreditBundles from '@/components/credit-bundles'
 import { useAutoFetch } from "@/hooks/use-auto-fetch";
 import { formatNumber } from "@/lib/utils";
 import { useApiKeys } from "@/hooks/use-api-keys";
-import type { User } from "@/shared/schema";
+import type { User, Transaction } from "@/shared/schema";
+import type { CreditBundle } from "@/components/credit-bundles";
 
+interface DashboardClientProps {
+  initialUserData: User | null;
+  initialTransactions: Transaction[];
+  initialBundles: CreditBundle[];
+}
 // This component receives the server-fetched data as props
-export function DashboardClient({ initialUserData, initialTransactions }: { initialUserData: User | null, initialTransactions: any[] }) {
+export function DashboardClient({ initialUserData, initialTransactions, initialBundles }: DashboardClientProps) {
   // 1. We now get the full `apiKeys` array from the hook.
   const { apiKeys } = useApiKeys();
   // 2. We can now calculate the active key count directly in the component.
@@ -40,10 +46,18 @@ export function DashboardClient({ initialUserData, initialTransactions }: { init
   }, [updatedTransactions]);
 
   // Calculate stats from the current state
-  const apiRequests = transactions.filter(tx => tx?.type === "usage").length;
-  const creditsUsed = transactions
-    .filter(tx => tx?.type === "usage")
-    .reduce((sum, tx) => sum + Math.abs(tx?.amount || 0), 0);
+  const { apiRequests, creditsUsed } = useMemo(() => {
+    const safeTransactions = Array.isArray(transactions) ? transactions : [];
+
+  // Use the correct transaction type from your enum
+    const usageTransactions = safeTransactions.filter(tx => tx?.type === "api_usage");
+    
+    const apiRequests = usageTransactions.length;
+    // For usage, sum the 'credits' column, not the monetary amount
+    const creditsUsed = usageTransactions.reduce((sum, tx) => sum + Math.abs(tx?.credits || 0), 0);
+
+    return { apiRequests, creditsUsed };
+  }, [transactions]);
 
   return (
     <>
@@ -100,14 +114,10 @@ export function DashboardClient({ initialUserData, initialTransactions }: { init
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div className="xl:col-span-2 space-y-6">
-          <Card><CardContent className="pt-6"><ApiUsageChart /></CardContent></Card>
-          <Card><CardContent className="pt-6"><ActivityTable /></CardContent></Card>
-        </div>
-        <div className="space-y-6">
-          <Card><CardContent className="pt-6"><CreditBundles /></CardContent></Card>
-        </div>
+      <div className="space-y-6">
+        <Card><CardContent className="pt-6"><ApiUsageChart /></CardContent></Card>
+        <Card><CardContent className="pt-6"><ActivityTable transactions={(Array.isArray(transactions) ? transactions : []).map((tx: any) => ({ ...tx, amount: typeof tx.amount === 'number' ? tx.amount : 0, type: tx.type === 'credits_purchase' ? 'credit_purchase' : (tx.type === 'subscription' ? 'adjustment' : tx.type), description: tx.description ?? '' })) as any} /></CardContent></Card>
+        <Card><CardContent className="pt-6"><CreditBundles bundles={initialBundles} /></CardContent></Card>
       </div>
     </>
   );

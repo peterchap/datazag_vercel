@@ -1,0 +1,272 @@
+# .github/workflows/sync-usage-production.yml
+name: Production Usage Sync
+
+on:
+  schedule:
+    # Primary sync - daily at 1 AM UTC
+    - cron: "0 1 * * *"
+    # Secondary sync - every 6 hours for high-frequency usage
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Date to sync (YYYYMMDD format)"
+        required: false
+        type: string
+      force_full_sync:
+        description: "Force full sync including credit discrepancy resolution"
+        required: false
+        type: boolean
+        default: false
+      environment:
+        description: "Environment to sync"
+        required: false
+        type: choice
+        options:
+          - production
+          - staging
+        default: production
+
+env:
+  NODE_OPTIONS: "--max-old-space-size=4096"
+
+jobs:
+  # Pre-flight checks
+  pre-flight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: ${{ github.event.inputs.environment || 'production' }}
+    outputs:
+      should_proceed: ${{ steps.health.outputs.healthy }}
+      app_version: ${{ steps.health.outputs.version }}
+
+    steps:
+      - name: System Health Check
+        id: health
+        run: |
+          echo "Checking system health..."
+
+          # Check Vercel app
+          vercel_response=$(curl -s "${{ secrets.VERCEL_APP_URL }}/api/health" \
+            --max-time 30 \
+            --write-out "HTTPSTATUS:%{http_code}")
+
+          vercel_status=$(echo "$vercel_response" | grep -o "HTTPSTATUS:[0-9]*" | cut -d: -f2)
+          vercel_body=$(echo "$vercel_response" | sed -E 's/HTTPSTATUS:[0-9]*$//')
+
+          if [ "$vercel_status" != "200" ]; then
+            echo "Vercel app unhealthy (status: $vercel_status)"
+            echo "healthy=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+          # Extract version
+          version=$(echo "$vercel_body" | jq -r '.version // "unknown"')
+          echo "version=$version" >> $GITHUB_OUTPUT
+
+          # Check Redis API
+          redis_response=$(curl -s "${{ secrets.REDIS_API_URL }}/redis/sync-status" \
+            -H "X-Internal-Token: ${{ secrets.INTERNAL_API_TOKEN }}" \
+            --max-time 30 \
+            --write-out "HTTPSTATUS:%{http_code}")
+
+          redis_status=$(echo "$redis_response" | grep -o "HTTPSTATUS:[0-9]*" | cut -d: -f2)
+
+          if [ "$redis_status" != "200" ]; then
+            echo "Redis API unhealthy (status: $redis_status)"
+            echo "healthy=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+          echo "All systems healthy"
+          echo "healthy=true" >> $GITHUB_OUTPUT
+
+  # Main sync job
+  sync-usage:
+    runs-on: ubuntu-latest
+    needs: pre-flight
+    if: needs.pre-flight.outputs.should_proceed == 'true'
+    timeout-minutes: 20
+    environment: ${{ github.event.inputs.environment || 'production' }}
+
+    strategy:
+      matrix:
+        # For high-volume, could split by date ranges
+        sync_type: [primary]
+
+    steps:
+      - name: Set sync parameters
+        id: params
+        run: |
+          # Determine sync date
+          if [ -n "${{ github.event.inputs.date }}" ]; then
+            sync_date="${{ github.event.inputs.date }}"
+            echo "Using manual date: $sync_date"
+          else
+            # Use yesterday for daily sync, today for frequent sync
+            if [ "${{ github.event.schedule }}" = "0 1 * * *" ]; then
+              sync_date=$(date -u -d "yesterday" +%Y%m%d)
+            else
+              sync_date=$(date -u -d "2 hours ago" +%Y%m%d)
+            fi
+            echo "Using calculated date: $sync_date"
+          fi
+
+          echo "date=$sync_date" >> $GITHUB_OUTPUT
+          echo "force_full=${{ github.event.inputs.force_full_sync || 'false' }}" >> $GITHUB_OUTPUT
+
+      - name: Execute sync with retries
+        id: sync
+        run: |
+          max_attempts=3
+          attempt=1
+          success=false
+
+          while [ $attempt -le $max_attempts ] && [ "$success" = "false" ]; do
+            echo "Sync attempt $attempt/$max_attempts for date ${{ steps.params.outputs.date }}"
+            
+            # Add jitter to prevent thundering herd
+            if [ $attempt -gt 1 ]; then
+              jitter=$((RANDOM % 60 + 30))
+              echo "Waiting ${jitter}s before retry..."
+              sleep $jitter
+            fi
+            
+            # Prepare request URL
+            sync_url="${{ secrets.VERCEL_APP_URL }}/api/cron/sync-usage"
+            if [ -n "${{ steps.params.outputs.date }}" ]; then
+              sync_url="${sync_url}?date=${{ steps.params.outputs.date }}"
+            fi
+            
+            # Execute sync
+            response=$(curl -X POST "$sync_url" \
+              -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+              -H "Content-Type: application/json" \
+              -H "User-Agent: GitHub-Actions-Pro/1.0" \
+              -H "X-Sync-Attempt: $attempt" \
+              -H "X-Force-Full: ${{ steps.params.outputs.force_full }}" \
+              --max-time 600 \
+              --write-out "HTTPSTATUS:%{http_code}" \
+              --silent --show-error)
+            
+            # Parse response
+            http_code=$(echo "$response" | grep -o "HTTPSTATUS:[0-9]*" | cut -d: -f2)
+            body=$(echo "$response" | sed -E 's/HTTPSTATUS:[0-9]*$//')
+            
+            echo "Response status: $http_code"
+            echo "Response body: $body"
+            
+            if [ "$http_code" = "200" ]; then
+              # Validate response format
+              if echo "$body" | jq -e '.success' > /dev/null 2>&1; then
+                success=true
+                
+                # Extract metrics
+                synced=$(echo "$body" | jq -r '.synced_records // 0')
+                errors=$(echo "$body" | jq -r '.errors // 0')
+                discrepancies=$(echo "$body" | jq -r '.credit_discrepancies // 0')
+                
+                echo "✅ Sync successful: $synced records, $errors errors, $discrepancies discrepancies"
+                echo "result=$body" >> $GITHUB_OUTPUT
+                echo "synced=$synced" >> $GITHUB_OUTPUT
+                echo "errors=$errors" >> $GITHUB_OUTPUT
+                echo "discrepancies=$discrepancies" >> $GITHUB_OUTPUT
+              else
+                echo "❌ Invalid response format"
+                echo "$body"
+              fi
+            else
+              echo "❌ HTTP error $http_code"
+              echo "$body"
+            fi
+            
+            attempt=$((attempt + 1))
+          done
+
+          if [ "$success" = "false" ]; then
+            echo "❌ All sync attempts failed"
+            exit 1
+          fi
+
+      - name: Validate sync quality
+        run: |
+          synced=${{ steps.sync.outputs.synced }}
+          errors=${{ steps.sync.outputs.errors }}
+          discrepancies=${{ steps.sync.outputs.discrepancies }}
+
+          echo "Validating sync quality..."
+          echo "Records synced: $synced"
+          echo "Errors: $errors"
+          echo "Discrepancies: $discrepancies"
+
+          # Set quality thresholds
+          if [ "$errors" -gt 50 ]; then
+            echo "⚠️ High error count: $errors"
+            echo "This may indicate a systematic issue"
+          fi
+
+          if [ "$discrepancies" -gt 10 ]; then
+            echo "⚠️ High discrepancy count: $discrepancies"
+            echo "Consider running force_full_sync to resolve"
+          fi
+
+          # For scheduled runs, fail if too many errors
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$errors" -gt 100 ]; then
+            echo "❌ Too many errors for scheduled run"
+            exit 1
+          fi
+
+  # Post-sync validation and cleanup
+  post-sync:
+    runs-on: ubuntu-latest
+    needs: [sync-usage]
+    if: always()
+    timeout-minutes: 10
+    environment: ${{ github.event.inputs.environment || 'production' }}
+
+    steps:
+      - name: System validation
+        run: |
+          echo "Running post-sync validation..."
+
+          # Check system health after sync
+          health_response=$(curl -s "${{ secrets.VERCEL_APP_URL }}/api/health" --max-time 30)
+
+          if echo "$health_response" | jq -e '.status == "healthy"' > /dev/null 2>&1; then
+            echo "✅ System healthy after sync"
+          else
+            echo "⚠️ System health concerns after sync"
+            echo "$health_response"
+          fi
+
+      - name: Update sync status
+        if: needs.sync-usage.result == 'success'
+        run: |
+          # Update last successful sync timestamp (could store in Redis/DB)
+          echo "Recording successful sync at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          # Optional: Update external monitoring
+          # curl -X POST "${{ secrets.HEALTHCHECK_URL }}" || true
+
+      - name: Failure notification
+        if: needs.sync-usage.result == 'failure'
+        run: |
+          echo "🚨 Sync job failed - sending notifications"
+
+          # Prepare failure details
+          failure_message="Usage sync failed for ${{ needs.sync-usage.outputs.date || 'today' }}"
+
+          # Send to monitoring/alerting systems
+          # Example: Slack webhook
+          if [ -n "${{ secrets.SLACK_WEBHOOK }}" ]; then
+            curl -X POST "${{ secrets.SLACK_WEBHOOK }}" \
+              -H "Content-Type: application/json" \
+              -d "{\"text\": \"$failure_message\", \"username\": \"GitHub Actions\", \"icon_emoji\": \":warning:\"}" || true
+          fi
+
+          # Example: Discord webhook  
+          if [ -n "${{ secrets.DISCORD_WEBHOOK }}" ]; then
+            curl -X POST "${{ secrets.DISCORD_WEBHOOK }}" \
+              -H "Content-Type: application/json" \
+              -d "{\"content\": \"$failure_message\"}" || true
+          fi

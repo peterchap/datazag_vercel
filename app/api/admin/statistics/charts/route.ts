@@ -38,10 +38,10 @@ export async function GET() {
     const monthlyRevenueResult = await db
       .select({
         month: sql<string>`TO_CHAR(created_at, 'YYYY-MM')`,
-        revenue: sum(transactions.amount),
+        revenue: sum(transactions.amountInBaseCurrencyCents),
       })
       .from(transactions)
-      .where(sql`${transactions.type} = 'purchase' AND ${transactions.createdAt} >= ${sixMonthsAgo.toISOString()}`)
+      .where(sql`${transactions.createdAt} = ${sixMonthsAgo.toISOString()} AND ${transactions.type} = 'credits_purchase'`)
       .groupBy(sql`TO_CHAR(created_at, 'YYYY-MM')`)
       .orderBy(sql`TO_CHAR(created_at, 'YYYY-MM')`);
     

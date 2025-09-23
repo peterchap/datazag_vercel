@@ -9,7 +9,6 @@ import type { Transaction } from "@/shared/schema"; // Assuming a shared transac
 
 export function useCredits() {
   const { toast } = useToast();
-  const { currency } = useCurrency();
   
   // Get credit bundles and expose its refetch function
   const {
@@ -29,59 +28,37 @@ export function useCredits() {
 
   const [isInitiatingPayment, setIsInitiatingPayment] = useState(false);
 
-  const initiatePayment = async ({ bundleId }: { bundleId: number }) => {
-    try {
-      setIsInitiatingPayment(true);
+  const initiatePayment = async ({ bundleId, currency }: { bundleId: number; currency: string; }) => {
+  setIsInitiatingPayment(true);
+  try {
+    // 1. The payload is now much simpler.
+    // We ONLY send the bundle ID and the target currency.
+    // The server will look up the price and do the conversion safely.
+    const payload = { 
+      bundleId,
+      currency,
+    };
 
-      const bundle = bundles.find(b => b.id === bundleId);
-      if (!bundle) {
-        throw new Error("Selected bundle not found.");
-      }
+    // 2. The apiRequest remains the same, but sends the simplified payload.
+    const res = await apiRequest("POST", "/api/stripe/checkout-credits", payload);
+    const data = await res.json();
 
-      const basePriceInUsdCents = bundle.price;
-      const conversionRate = currency.rate;
-      const convertedAmountInCents = Math.round((basePriceInUsdCents / 100) * conversionRate * 100);
-      
-
-      const payload: {
-        bundleId: number;
-        currency: string;
-        amount: number;
-      } = { 
-        bundleId,
-        currency: currency.code,
-        amount: convertedAmountInCents,
-      };
-
-      const res = await apiRequest("POST", "/api/stripe/checkout-credits", payload);
-      const data = await res.json();
-
-      if (data.freeClaim) {
-        toast({
-          title: "Success!",
-          description: data.message || "Your free credits have been added.",
-        });
-        queryClient.invalidateQueries({ queryKey: ["/api/me"] });
-        refetchTransactions(); // Refresh the transactions list
-        return;
-      }
-      
-      if (res.ok && data?.url) {
-        window.location.href = data.url;
-        return;
-      }
-      
-      throw new Error(data?.error || "Unable to start checkout");
-    } catch (error: any) {
-      toast({
-        title: "Payment Initiation Failed",
-        description: error.message || "Unable to initiate payment.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsInitiatingPayment(false);
+    if (res.ok && data?.url) {
+      window.location.href = data.url; // Redirect to Stripe
+      return;
     }
-  };
+    
+    throw new Error(data?.error || "Unable to start checkout");
+  } catch (error: any) {
+    toast({
+      title: "Payment Initiation Failed",
+      description: error.message || "Unable to initiate payment.",
+      variant: "destructive",
+    });
+  } finally {
+    setIsInitiatingPayment(false);
+  }
+};
   
   return {
     bundles: Array.isArray(bundles) ? bundles : [],

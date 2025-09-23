@@ -10,11 +10,19 @@ import {
   jsonb,
   numeric,
   json,
+  pgEnum,
   AnyPgColumn,
 } from "drizzle-orm/pg-core"
 import type { AdapterAccount } from "@auth/core/adapters"
+
 import { relations } from "drizzle-orm";
 import { randomUUID } from "crypto";
+
+// PostgreSQL enum for payment methods used in the transactions table.
+// Define once to avoid duplicate enum creation in migrations.
+export const paymentMethodEnum = pgEnum('payment_method', ['stripe', 'paypal', 'crypto', 'manual']);
+export const transactionTypeEnum = pgEnum('transaction_type', ['credits_purchase', 'api_usage', 'refund', 'subscription']);
+export const transactionStatusEnum = pgEnum('transaction_status', ['pending', 'completed', 'failed']);
 
 // --- Main Users Table ---
 export const users = pgTable("users", {
@@ -126,15 +134,29 @@ export const discountCodes = pgTable("discount_codes", {
 });
 
 export const transactions = pgTable("transactions", {
-    id: text("id").primaryKey(),
-    userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-    apiKeyId: integer("api_key_id").references(() => apiKeys.id),
-    type: text("type").notNull(),
-    amount: integer("amount").notNull(),
-    description: text("description").notNull(),
-    status: text("status").notNull(),
-    metadata: json("metadata"),
-    createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
+  // Core IDs
+  id: text("id").primaryKey(), // The unique ID from the payment gateway (e.g., Stripe's cs_...)
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Transaction Details
+  type: transactionTypeEnum("type").notNull(),
+  status: transactionStatusEnum("status").notNull(),
+  description: text("description").notNull(),
+  
+  // Monetary Values
+  amountInBaseCurrencyCents: integer("amount_in_base_currency_cents").notNull(),
+  originalAmount: integer("original_amount").notNull(),
+  originalCurrency: text("original_currency").notNull(),
+  exchangeRateAtPurchase: numeric("exchange_rate_at_purchase", { precision: 10, scale: 6 }).notNull(),
+  
+  // Payment Gateway Details
+  paymentMethod: paymentMethodEnum("payment_method").notNull(),
+  gatewayCustomerId: text("gateway_customer_id"), // Optional: The customer ID from the gateway
+  
+  // App-Specific Data
+  credits: integer("credits").notNull(),
+  metadata: json("metadata"), // Optional: For storing extra unstructured data
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const subscriptionPlans = pgTable("subscription_plans", {
