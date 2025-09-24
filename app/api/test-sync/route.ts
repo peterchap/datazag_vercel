@@ -8,7 +8,8 @@ export async function GET() {
     const result = await usageSyncService.syncUsageFromRedis(today);
     
     return NextResponse.json({ success: true, result });
-  } catch (error) {
-    return NextResponse.json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

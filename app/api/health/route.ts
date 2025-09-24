@@ -6,15 +6,18 @@ import { users } from '@/shared/schema';
 export async function GET() {
   try {
     // Test database connection
-    const dbTest = await db.select({ count: 1 }).from(users).limit(1);
+    const dbTest = await db.select().from(users).limit(1);
     
     // Test Redis connection
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
     const redisTest = await fetch(`${process.env.REDIS_API_URL}/redis/sync-status`, {
       headers: {
         'X-Internal-Token': process.env.INTERNAL_API_TOKEN!
       },
-      timeout: 5000
+      signal: controller.signal
     });
+    clearTimeout(timeoutId);
     
     const redisHealthy = redisTest.ok;
     
