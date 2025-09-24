@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { usageSyncService } from '@/lib/usage-sync-service';
 import { db } from '@/lib/drizzle';
 import { users } from '@/shared/schema';
-import { redisSyncService } from '@/lib/redis-sync-service';
+import { redisSyncService } from '@/lib/redis-sync-client';
 
 // Verify this is a legitimate cron request
 function verifyCronRequest(request: NextRequest): boolean {
