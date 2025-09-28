@@ -5,8 +5,15 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1758123812815,
-      "tag": "0000_slim_freak",
+      "when": 1758799631925,
+      "tag": "0000_shallow_captain_cross",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1758800143860,
+      "tag": "0001_strong_exodus",
       "breakpoints": true
     }
   ]

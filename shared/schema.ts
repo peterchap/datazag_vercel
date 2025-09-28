@@ -37,6 +37,7 @@ export const users = pgTable("users", {
   image: text("image"),
   companyAddress: text("company_address"),
   credits: integer("credits").default(0).notNull(),
+  creditsPurchased: integer("credits_purchased").default(0),
   stripeCustomerId: text("stripe_customer_id"),
   role: text("role").default('user').notNull(),
   parentUserId: text("parent_user_id").references((): AnyPgColumn => users.id, { onDelete: "set null" }),
@@ -159,6 +160,15 @@ export const transactions = pgTable("transactions", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const creditTransactions = pgTable("credit_transactions", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  amount: integer("amount").notNull(),
+  type: text("type").notNull(), // 'allocation', 'usage', 'purchase', 'refund'
+  description: text("description"),
+  createdAt: timestamp("created_at", { mode: 'string' }).notNull().defaultNow(),
+});
+
 export const subscriptionPlans = pgTable("subscription_plans", {
     id: serial("id").primaryKey(),
     name: text("name").notNull(),
@@ -220,6 +230,13 @@ export const requestCommentsRelations = relations(requestComments, ({ one }) => 
   }),
 }));
 
+export const apiUsageRelations = relations(apiUsage, ({ one }) => ({
+  user: one(users, {
+    fields: [apiUsage.userId],
+    references: [users.id],
+  }),
+}));
+
 export const USER_ROLES = {
   BUSINESS_ADMIN: 'business_admin',
   CLIENT_ADMIN: 'client_admin',
@@ -239,6 +256,7 @@ export type NewEmailVerificationToken = typeof emailVerificationTokens.$inferIns
 export type NewUser = typeof users.$inferInsert;
 export type ApiKey = typeof apiKeys.$inferSelect;
 export type Transaction = typeof transactions.$inferSelect;
+export type CreditTransaction = typeof creditTransactions.$inferSelect;
 export type NewTransaction = typeof transactions.$inferInsert;
 export type ApiUsage = typeof apiUsage.$inferSelect;
 export type CreditBundle = typeof creditBundles.$inferSelect;

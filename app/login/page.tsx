@@ -12,9 +12,6 @@ function LoginFormLoading() {
 
 export default function LoginPage() {
   return (
-    // By wrapping the client component in a Suspense boundary, we allow it
-    // to use client-side hooks like useSearchParams without breaking the
-    // server-side build process.
     <Suspense fallback={<LoginFormLoading />}>
       <LoginClient />
     </Suspense>

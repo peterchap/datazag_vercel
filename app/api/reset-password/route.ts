@@ -6,7 +6,10 @@ import bcrypt from 'bcryptjs';
 
 export async function POST(req: NextRequest) {
     try {
-        const { token, password } = await req.json();
+        // Use the same text parsing approach that works
+        const bodyText = await req.text();
+        const { token, password } = JSON.parse(bodyText);
+        
         if (!token || !password || password.length < 8) {
             return NextResponse.json({ message: 'Token and a valid password are required.' }, { status: 400 });
         }
@@ -25,10 +28,15 @@ export async function POST(req: NextRequest) {
         const hashedPassword = await bcrypt.hash(password, 12);
 
         await db.update(users)
-            .set({ password: hashedPassword, passwordResetToken: null, passwordResetExpires: null })
+            .set({ 
+                password: hashedPassword, 
+                passwordResetToken: null, 
+                passwordResetExpires: null 
+            })
             .where(eq(users.id, user.id));
 
         return NextResponse.json({ message: 'Password has been reset successfully. You can now log in.' });
+        
     } catch (error) {
         console.error('Reset password error:', error);
         return NextResponse.json({ message: 'Server error' }, { status: 500 });

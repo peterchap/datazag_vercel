@@ -1,5 +1,6 @@
 import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
+// import { drizzle } from 'drizzle-orm/neon-http';
 import * as schema from '@/shared/schema';
 import { existsSync, readFileSync } from 'fs';
 import { resolve as resolvePath } from 'path';

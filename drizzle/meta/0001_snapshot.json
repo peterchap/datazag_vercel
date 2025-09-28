@@ -1,6 +1,6 @@
 {
-  "id": "43834649-2296-44d3-a49f-7f334e4d570c",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "06e77bac-8e9d-4af9-a515-0e8656def167",
+  "prevId": "43834649-2296-44d3-a49f-7f334e4d570c",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -419,7 +419,7 @@
         },
         "user_id": {
           "name": "user_id",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -1107,6 +1107,13 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
+          "default": 0
+        },
+        "credits_purchased": {
+          "name": "credits_purchased",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
           "default": 0
         },
         "stripe_customer_id": {

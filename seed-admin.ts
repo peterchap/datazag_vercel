@@ -16,8 +16,8 @@ async function seedAdmin() {
   console.log("Starting admin user seeding process...");
 
   // --- DEFINE YOUR ADMIN USER DETAILS HERE ---
-  const adminEmail = "peter.admin@datazag.com"; // Replace with your admin email
-  const adminPassword = "YourSecurePassword123!"; // Replace with a strong, temporary password
+  const adminEmail = "admin@datazag.com"; // Replace with your admin email
+  const adminPassword = "1Francis2!"; // Replace with a strong, temporary password
   const adminFirstName = "Admin";
   const adminLastName = "User";
   const adminCompany = "Datazag Internal";

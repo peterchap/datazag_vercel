@@ -56,7 +56,7 @@
     "next": "14.2.3",
     "next-auth": "5.0.0-beta.19",
     "next-themes": "^0.3.0",
-    "pg": "^8.12.0",
+    "pg": "^8.16.3",
     "postgres": "^3.4.7",
     "react": "^18.3.1",
     "react-day-picker": "^8.10.1",
@@ -77,14 +77,15 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.6",
     "@types/node": "^20",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
+    "@types/pg": "^8.15.5",
+    "@types/react": "^18.3.24",
+    "@types/react-dom": "^18.3.7",
     "autoprefixer": "^10.4.21",
-    "drizzle-kit": "^0.23.0",
+    "drizzle-kit": "^0.23.2",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
-    "tsx": "^4.16.2",
-    "typescript": "^5"
+    "tsx": "^4.20.5",
+    "typescript": "5.9.2"
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.8"
