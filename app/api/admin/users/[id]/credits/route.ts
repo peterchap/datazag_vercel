@@ -43,19 +43,20 @@ export async function POST(
         status: 'completed',
     } as any);
     // Updated to use the new Redis sync method
-    redisSyncService.updateCredits(userId, newBalance)
+    redisSyncService.updateApiKeyCredits(userId, newBalance)
       .then(results => {
-        const successCount: number = (results as RedisSyncResult[]).filter((r: RedisSyncResult) => r.success).length;
-        const totalKeys = results.length;
-        console.log(`[Redis Sync] Successfully synced credits for ${successCount}/${totalKeys} API keys for user ${userId}.`);
-        
-        // Log any failures
+        // Assuming results.data is the array of sync results
         interface RedisSyncResult {
           success: boolean;
           message?: string;
         }
 
-        results.forEach((result: RedisSyncResult, index: number) => {
+        const syncResults = (results as any).data as RedisSyncResult[] || [];
+        const successCount: number = syncResults.filter((r: RedisSyncResult) => r.success).length;
+        const totalKeys = syncResults.length;
+        console.log(`[Redis Sync] Successfully synced credits for ${successCount}/${totalKeys} API keys for user ${userId}.`);
+
+        syncResults.forEach((result: RedisSyncResult, index: number) => {
           if (!result.success) {
             console.error(`[Redis Sync Failed] API key ${index} for user ${userId}:`, result.message);
           }

@@ -41,7 +41,7 @@ export async function PATCH(
     // Find and update the target user
     const targetUser = await db.query.users.findFirst({
       where: and(
-        eq(users.id, userId),
+        eq(users.id, userId.toString()),
         eq(users.company, adminUser.company)
       )
     });

@@ -88,7 +88,10 @@ export class UsageSyncService {
       }
       
       const usageData = response.data;
-      const usageRecords: UsageRecord[] = usageData.usage_records || [];
+      // Type guard to ensure usageData is an object with usage_records array
+      const usageRecords: UsageRecord[] = (typeof usageData === 'object' && usageData !== null && Array.isArray((usageData as any).usage_records))
+        ? (usageData as { usage_records: UsageRecord[] }).usage_records
+        : [];
       
       if (usageRecords.length === 0) {
         return { synced: 0, errors: 0 };
@@ -210,7 +213,9 @@ export class UsageSyncService {
             const redisResponse = await redisSyncService.getApiKey(userApiKey.apiKey);
             
             if (redisResponse.success && redisResponse.data) {
-              const redisCredits = redisResponse.data.credits || 0;
+              const redisCredits = (redisResponse.data && typeof (redisResponse.data as any).credits === 'number')
+                ? (redisResponse.data as any).credits
+                : 0;
               
               if ((userApiKey.dbCredits || 0) !== redisCredits) {
                 discrepancies.push({
@@ -261,7 +266,7 @@ export class UsageSyncService {
       
       for (const user of allUsers) {
         try {
-          const result = await redisSyncService.updateCredits(user.id, user.credits || 0);
+          const result = await redisSyncService.updateApiKeyCredits(user.id, user.credits || 0);
           if (result.success) {
             syncedCount++;
             if (syncedCount % 50 === 0) {

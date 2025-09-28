@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
           
           try {
             // Force sync credits from DB to Redis for this user
-            await redisSyncService.updateCredits(discrepancy.userId, discrepancy.dbCredits);
+            await redisSyncService.updateApiKeyCredits(discrepancy.userId, discrepancy.dbCredits);
             console.log(`[Cron] Resolved discrepancy for user ${discrepancy.userId}`);
           } catch (error) {
             console.error(`[Cron] Failed to resolve discrepancy for user ${discrepancy.userId}:`, error);

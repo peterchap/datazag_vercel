@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
       // **PROCESS 2: REDIS CACHE UPDATES**
       try {
         console.log('[Webhook] Starting Redis sync...');
-        await redisSyncService.updateCredits(userId, updatedUser.credits);
+        await redisSyncService.updateApiKeyCredits(userId, updatedUser.credits);
         console.log(`[Webhook] Redis sync completed successfully for user ${userId}`);
       } catch (redisError) {
         console.error(`[Webhook] Redis sync failed for user ${userId}:`, redisError);

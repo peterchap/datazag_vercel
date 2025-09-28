@@ -6,7 +6,10 @@ import { PgColumn } from "drizzle-orm/pg-core";
 
 /**
  * Fetches the list of users belonging to the same company as the
- * currently authenticated client admin. This now connects directly to the database.
+ * currently authenticated client admin. If the admin user does not have a company,
+ * only their own user record will be returned (singleton). If no client admin has been
+ * assigned to users in the same company, those users will not be included unless their
+ * company matches the admin's company.
  * @param adminUserId The ID of the client admin making the request.
  * @returns An array of user objects.
  */
@@ -42,15 +45,15 @@ export async function fetchUsageData(company: string) {
     // Get usage data from api_usage table with user info
     const usageRecords = await db
       .select({
-        id: apiUsage.id,
-        userId: apiUsage.userId,
-        amount: apiUsage.creditsUsed, // or whatever the column name is
-        description: apiUsage.endpoint, // or description field
-        date: apiUsage.createdAt,
-        endpoint: apiUsage.endpoint,
-        userName: users.firstName,
-        lastName: users.lastName,
-        userEmail: users.email,
+      id: apiUsage.id,
+      userId: apiUsage.userId,
+      amount: apiUsage.creditsUsed,
+      description: apiUsage.endpoint, // or use another field if available
+      date: apiUsage.createdAt,
+      endpoint: apiUsage.endpoint,
+      userName: users.firstName,
+      lastName: users.lastName,
+      userEmail: users.email,
       })
       .from(apiUsage)
       .innerJoin(users, eq(users.id, apiUsage.userId))

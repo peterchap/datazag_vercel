@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
       // Record initial credit allocation if any
       if (creditsToAllocate > 0) {
         await tx.insert(creditTransactions).values({
-          userId: parseInt(newUserId),
+          userId: newUserId,
           amount: creditsToAllocate,
           type: 'allocation',
           description: `Initial credits allocated during user creation by ${adminUser.firstName} ${adminUser.lastName}`,
@@ -199,7 +199,7 @@ export async function GET(req: NextRequest) {
     const usersWithUsage = await Promise.all(
       companyUsers.map(async (user) => {
         const transactions = await db.query.creditTransactions.findMany({
-          where: eq(creditTransactions.userId, Number(user.id))
+          where: eq(creditTransactions.userId, user.id)
         });
 
         const creditsUsed = transactions

@@ -23,6 +23,9 @@ export async function PATCH(
     }
 
     // Verify admin is authorized
+    if (!session.user.email) {
+      return NextResponse.json({ message: 'User email not found in session' }, { status: 400 });
+    }
     const adminUser = await db.query.users.findFirst({
       where: eq(users.email, session.user.email.toLowerCase())
     });

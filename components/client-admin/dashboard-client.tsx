@@ -147,7 +147,9 @@ export function CompanyAdminDashboardClient({
       setSelectedUserId(null);
     } catch (error) {
       console.error('Credit allocation error:', error);
-      console.error('Error details:', error.message);
+      if (error instanceof Error) {
+        console.error('Error details:', error.message);
+      }
       toast({ title: "Allocation Failed", description: "Could not allocate credits to the user.", variant: "destructive" });
     }
   };
@@ -190,10 +192,11 @@ export function CompanyAdminDashboardClient({
         ...newUser,
         initialCredits
       });
+      const data = typeof response.json === "function" ? await response.json() : response; // Support both fetch and direct object
 
       // Add new user to local state
       const createdUser: CompanyUser = {
-        id: response.id,
+        id: data.id,
         ...newUser,
         credits: initialCredits,
         creditsUsed: 0,

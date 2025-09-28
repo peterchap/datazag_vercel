@@ -33,7 +33,7 @@ export async function DELETE(
 
     // Find the target user and verify they're in the same company
     const targetUser = await db.query.users.findFirst({
-      where: eq(users.id, userId)
+      where: eq(users.id, userId.toString())
     });
 
     if (!targetUser) {
@@ -137,7 +137,7 @@ export async function GET(
 
     // Get user's credit usage
     const transactions = await db.query.creditTransactions.findMany({
-      where: eq(creditTransactions.userId, userId)
+      where: eq(creditTransactions.userId, userId.toString())
     });
 
     const creditsUsed = transactions
