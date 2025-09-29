@@ -12,7 +12,7 @@ import { Users, Key, DollarSign, Activity, CreditCard, Percent, BarChart, LineCh
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart as RechartsBarChart, Bar, PieChart as RechartsPieChart, Pie, Cell, Legend } from "recharts";
 import { Badge } from "@/components/ui/badge";
 
-// --- Types (Ensure these are defined or imported from a shared file) ---
+// --- Types for the overview stats ---
 type OverviewStats = {
   totalUsers: number;
   totalApiKeys: number;
