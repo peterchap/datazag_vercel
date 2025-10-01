@@ -45,6 +45,10 @@ interface ErrorPayload {
 type ApiResponsePayload = SuccessPayload | ErrorPayload;
 
 export async function GET(): Promise<NextResponse<ApiResponsePayload>> {
+  console.log('EXCHANGERATE_API_KEY exists:', !!API_KEY);
+  console.log('EXCHANGERATE_API_KEY length:', API_KEY?.length);
+  console.log('All env keys with EXCHANGE:', Object.keys(process.env).filter(k => k.includes('EXCHANGE')));
+ 
   if (!API_KEY) {
     return NextResponse.json<ErrorPayload>({ success: false, error: 'API key not configured.' }, { status: 500 });
   }
