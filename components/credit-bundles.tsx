@@ -10,8 +10,6 @@ import { Coins, CheckCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { formatNumber } from "@/lib/utils";
 
-
-
 // This interface defines the shape of a credit bundle object
 export interface CreditBundle {
   id: number;
