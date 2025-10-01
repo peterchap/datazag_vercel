@@ -171,6 +171,7 @@ export async function POST(req: NextRequest) {
       console.log(`[Webhook] Summary: Added ${creditsToAdd} credits, updated Redis, sent email`);
     }
 
+    
     return NextResponse.json({ received: true });
   } catch (err: any) {
     console.error('[Webhook] CRITICAL ERROR:', err.message);
