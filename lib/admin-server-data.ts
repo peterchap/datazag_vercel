@@ -58,11 +58,26 @@ export async function fetchSystemHealth() {;
   console.log("Public API URL:", publicApiUrl);
 
   const services = [
-    // 1. Check PostgreSQL Database
-    checkServiceStatus('PostgreSQL Database', async () => {
+    // 1. Check PostgreSQL Database (include DB name in the message)
+    (async () => {
+      try {
+      // Get the database name
+      const result = await db.execute<{ current_database: string }>(sql`SELECT current_database()`);
+      const dbName = result.rows?.[0]?.current_database || "unknown";
       await db.execute(sql`SELECT 1`);
-      return true;
-    }),   
+      return {
+        name: 'PostgreSQL Database',
+        status: 'Operational',
+        message: `Connected to database: ${dbName}`,
+      };
+      } catch (error: any) {
+      return {
+        name: 'PostgreSQL Database',
+        status: 'Offline',
+        message: error.message || 'Failed to connect to the database.',
+      };
+      }
+    })(),
 
     // 2. Check Redis API (the FastAPI service on Cloud Run)
     checkServiceStatus('Redis API (Cloud Run)', async () => {

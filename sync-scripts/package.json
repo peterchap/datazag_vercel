@@ -1,0 +1,17 @@
+{
+  "name": "redis-sync-scripts",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Scripts to sync Neon Postgres with Redis Memorystore",
+  "scripts": {
+    "sync": "node sync-portal-to-redis.js",
+    "test-sync": "node test-sync.js"
+  },
+  "dependencies": {
+    "postgres": "^3.4.4",
+    "node-fetch": "^3.3.2"
+  },
+  "devDependencies": {
+    "dotenv": "^16.4.5"
+  }
+}

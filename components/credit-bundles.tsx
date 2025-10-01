@@ -28,9 +28,10 @@ interface CreditBundlesProps {
 
 // You can keep your copy overrides to customize display without changing the DB
 const BUNDLE_COPY_OVERRIDES: Record<string, { name?: string; description?: string; features?: string[] }> = {
-  starter: { name: "Starter", description: "Perfect for testing and small projects.", features: ["1,000 Credits", "Basic API Access"] },
-  business: { name: "Business", description: "For growing teams and production use.", features: ["10,000 Credits", "Standard API Access", "Email Support"] },
-  enterprise: { name: "Enterprise", description: "Scale with governance and support.", features: ["100,000 Credits", "Full API Access", "Dedicated Support"] },
+  starter: { name: "Starter", description: "Perfect for testing and small projects.", features: [ "API Access", "Decision Flag", "Email Support"] },
+  pro: { name: "Pro", description: "For professionals and growing teams.", features: ["API Access", "Decision & Reason Flags", "Email Support"] },
+  business: { name: "Business", description: "For growing teams and production use.", features: ["API Access", "Decision & Reason Flags", "Priority Email Support"] },
+  enterprise: { name: "Enterprise", description: "Scale with governance and support.", features: ["API Access", "Decision & Reason Flags","DNS Records","Dedicated Support"] },
 };
 
 const classifyOverrideKey = (name: string): string => {

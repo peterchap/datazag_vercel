@@ -1,15 +1,7 @@
 // app/page.tsx
+import { redirect } from 'next/navigation';
 
-// No need for 'use client' or any hooks!
-
-export default function HomePage() {
-  // This content will only be seen by users if they somehow land here,
-  // but the middleware will redirect them away immediately.
-  // It can be a simple marketing page or just null.
-  return (
-    <div>
-      <h1>Welcome to Datazag</h1>
-      <p>Please log in to continue.</p>
-    </div>
-  );
+export default function Home() {
+  // The middleware will handle this, but as a fallback:
+  redirect('/dashboard');
 }

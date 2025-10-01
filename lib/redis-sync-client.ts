@@ -162,7 +162,7 @@ export class RedisSyncService {
   const payload: ApiKeyRegisterPayload = sanitize({
     api_key: toStr(keyVal, 'api_key'),
     user_id: toStr((apiKeyData as any).user_id, 'user_id'),
-    credits: toInt((apiKeyData as any).credits, 0),
+    credits: toInt((apiKeyData as any).credits, (apiKeyData as any).credits ?? 0),
     active: toBool((apiKeyData as any).active, true),
   });
 

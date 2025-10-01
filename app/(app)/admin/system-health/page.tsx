@@ -10,7 +10,19 @@ export default async function SystemHealthPage() {
     redirect("/login");
   }
 
-  const initialHealthStatus = await fetchSystemHealth();
+  const initialHealthStatusRaw = await fetchSystemHealth();
+
+  // Map status to the expected union type
+  const statusMap = {
+    "operational": "Operational",
+    "offline": "Offline",
+    "degraded": "Degraded"
+  } as const;
+
+  const initialHealthStatus = initialHealthStatusRaw.map((item: any) => ({
+    ...item,
+    status: statusMap[(item.status?.toLowerCase() as keyof typeof statusMap)] ?? "Operational"
+  }));
 
   return <SystemHealthClient initialHealthStatus={initialHealthStatus} />;
 }
