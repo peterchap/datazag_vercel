@@ -13,6 +13,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // DEBUG: Log all environment variables
+  console.log('APP_BASE_URL:', process.env.APP_BASE_URL);
+  console.log('All env keys:', Object.keys(process.env).filter(k => k.includes('APP')));
+
   if (!stripe) {
     return NextResponse.json({ error: 'Stripe is not configured.' }, { status: 500 });
   }
@@ -35,7 +39,7 @@ export async function POST(req: NextRequest) {
     const priceInUsdCents = bundle.price;
 
     // 3. Fetch the latest exchange rates FROM YOUR OWN API
-    const appBaseUrl = process.env.APP_BASE_URL || 'http://localhost:3001';
+    const appBaseUrl = process.env.APP_BASE_URL;
     const ratesResponse = await fetch(`${appBaseUrl}/api/exchange-rates`);
     if (!ratesResponse.ok) throw new Error('Could not fetch exchange rates.');
     const { rates } = await ratesResponse.json();
