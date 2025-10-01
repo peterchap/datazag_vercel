@@ -20,6 +20,7 @@ async function quickTestUsers() {
   const datazag = await client.query("SELECT id FROM companies WHERE name = 'DataZag Inc'");
   const acme = await client.query("SELECT id FROM companies WHERE name = 'Acme Corp'");
   
+  
   // Create users
   await client.query(`
     INSERT INTO users (email, name, role, company_id, can_purchase_credits) 
