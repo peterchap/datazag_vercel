@@ -87,7 +87,9 @@ export async function POST(req: NextRequest) {
 
     console.log('[Checkout] Created session:', stripeSession.id);
     console.log('[Checkout] Session success_url:', stripeSession.success_url);
-
+    console.log('[Checkout] Full session object:', JSON.stringify(stripeSession, null, 2));
+    console.log('[Checkout] Session URL:', stripeSession.url);
+      
     return NextResponse.json({ url: stripeSession.url });
 
   } catch (err: any) {
