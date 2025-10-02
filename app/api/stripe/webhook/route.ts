@@ -9,7 +9,7 @@ import { redisSyncService } from '@/lib/redis-sync-client';
 
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || null;
 
 export async function POST(req: NextRequest) {
   console.log('[Webhook] Handler started.');
@@ -29,8 +29,21 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. Verify the event is genuinely from Stripe
-    const event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
-    console.log(`[Webhook] Event constructed successfully. Type: ${event.type}, ID: ${event.id}`);
+    let event: Stripe.Event;
+    try {
+      event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
+      console.log(`[Webhook] ✅ Signature verified! Event type: ${event.type}`);
+    } catch (err: any) {
+      console.error('[Webhook] ❌ Signature verification failed');
+      console.error('[Webhook] Error name:', err.name);
+      console.error('[Webhook] Error message:', err.message);
+      console.error('[Webhook] Signature (first 50 chars):', signature.substring(0, 50));
+      console.error('[Webhook] Body (first 100 chars):', rawBody.substring(0, 100));
+      
+      return NextResponse.json({ 
+        error: `Webhook signature verification failed: ${err.message}` 
+      }, { status: 400 });
+    }
 
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session;
