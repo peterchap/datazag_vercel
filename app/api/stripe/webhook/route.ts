@@ -9,7 +9,7 @@ import { redisSyncService } from '@/lib/redis-sync-client';
 export const runtime = 'nodejs'; // Ensure the route is treated as a Node.js function
 export const dynamic = 'force-dynamic';
 
-const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-08-27.basil' }) : null;
+const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || null;
 
