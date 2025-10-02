@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { headers } from 'next/headers';
 import { db } from '@/lib/drizzle';
 import { users, transactions } from '@/shared/schema';
 import { eq, sql } from 'drizzle-orm';
