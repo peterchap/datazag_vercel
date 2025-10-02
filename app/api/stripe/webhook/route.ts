@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
   console.log('[Webhook] Handler started.');
   // ⚠️ ADD THIS DEBUG LINE ⚠️
   console.log('[DEBUG] Secret length:', webhookSecret ? webhookSecret.length : 'N/A');
-  console.log('[DEBUG] Secret (last 4 chars):', webhookSecret ? webhookSecret.slice(-4) : 'N/A');
+  console.log('[DEBUG] Secret (first 38):', webhookSecret ? webhookSecret.slice(38) : 'N/A');
   // ⚠️ REMOVE THIS BEFORE PRODUCTION ⚠️
   
   if (!stripe || !webhookSecret) {
