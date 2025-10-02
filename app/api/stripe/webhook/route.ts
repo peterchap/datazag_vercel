@@ -27,7 +27,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const rawBodyBuffer = await req.arrayBuffer();
-    const rawBody = Buffer.from(rawBodyBuffer).toString();
+    const rawBody = Buffer.from(rawBodyBuffer).toString('utf8');
+    console.log('[Webhook] Raw body received:', rawBody.substring(0, 200)); // Log first 200 chars
 
     // Extract Stripe signature from headers
     const signature = req.headers.get('stripe-signature');
