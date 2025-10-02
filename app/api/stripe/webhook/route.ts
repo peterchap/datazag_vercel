@@ -6,6 +6,13 @@ import Stripe from 'stripe';
 import { Resend } from 'resend';
 import { redisSyncService } from '@/lib/redis-sync-client';
 
+// Configuration to disable automatic body parsing for this route
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
 export const runtime = 'nodejs'; // Ensure the route is treated as a Node.js function
 export const dynamic = 'force-dynamic';
 
