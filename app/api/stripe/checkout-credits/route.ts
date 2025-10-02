@@ -40,6 +40,17 @@ export async function POST(req: NextRequest) {
 
     // 3. Fetch the latest exchange rates FROM YOUR OWN API
     const appBaseUrl = process.env.APP_BASE_URL;
+
+    console.log('[Checkout] APP_BASE_URL:', appBaseUrl);
+    console.log('[Checkout] Success URL will be:', `${appBaseUrl}/credits?success=1`);
+    console.log('[Checkout] Cancel URL will be:', `${appBaseUrl}/credits?canceled=1`);
+
+    if (!appBaseUrl) {
+      return NextResponse.json({ 
+        error: 'APP_BASE_URL environment variable is not set',
+      }, { status: 500 });
+    }
+
     const ratesResponse = await fetch(`${appBaseUrl}/api/exchange-rates`);
     if (!ratesResponse.ok) throw new Error('Could not fetch exchange rates.');
     const { rates } = await ratesResponse.json();
