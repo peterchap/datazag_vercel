@@ -85,6 +85,9 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    console.log('[Checkout] Created session:', stripeSession.id);
+    console.log('[Checkout] Session success_url:', stripeSession.success_url);
+
     return NextResponse.json({ url: stripeSession.url });
 
   } catch (err: any) {
