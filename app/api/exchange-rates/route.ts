@@ -45,12 +45,10 @@ interface ErrorPayload {
 type ApiResponsePayload = SuccessPayload | ErrorPayload;
 
 export async function GET(): Promise<NextResponse<ApiResponsePayload>> {
-  console.log('EXCHANGERATE_API_KEY exists:', !!API_KEY);
-  console.log('EXCHANGERATE_API_KEY length:', API_KEY?.length);
-  console.log('All env keys with EXCHANGE:', Object.keys(process.env).filter(k => k.includes('EXCHANGE')));
+  // Debug: Show ALL environment variables (be careful - only for debugging!)
   console.log('ALL ENV KEYS:', Object.keys(process.env).sort());
   console.log('ENV keys count:', Object.keys(process.env).length);
-
+  
   // Check specific patterns
   console.log('Keys with RATE:', Object.keys(process.env).filter(k => k.includes('RATE')));
   console.log('Keys with API:', Object.keys(process.env).filter(k => k.includes('API')));
