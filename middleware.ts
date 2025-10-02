@@ -6,21 +6,7 @@ export default NextAuth(authConfig).auth;
 
 export const config = {
   matcher: [
-    /*
-      Match all routes except:
-      - /api/stripe/webhook
-      - /api/*
-      - /_next/static/*
-      - /_next/image/*
-      - /favicon.ico
-      - any file ending with .png, .jpg, .jpeg, .svg
-    */
-    '/',
-    '/((?!api/stripe/webhook).*)',
-    '/((?!api).*)',
-    '/((?!_next/static).*)',
-    '/((?!_next/image).*)',
-    '/((?!favicon.ico).*)',
-    '/((?!.*\\.(png|jpg|jpeg|svg)$).*)',
+    // Match all routes except the following (by not including them)
+    '/((?!api/stripe/webhook|api/.*|_next/static/.*|_next/image/.*|favicon.ico|.*\\.(png|jpg|jpeg|svg)$).*)',
   ],
 };
