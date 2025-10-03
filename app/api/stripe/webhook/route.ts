@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import {headers} from 'next/headers';
 import { db } from '@/lib/drizzle';
 import { users, transactions } from '@/shared/schema';
 import { eq, sql } from 'drizzle-orm';
@@ -11,53 +12,43 @@ import { redisSyncService } from '@/lib/redis-sync-client';
 export const runtime = 'nodejs'; // Ensure the route is treated as a Node.js function
 export const dynamic = 'force-dynamic';
 
-// import { buffer } from 'micro'; 
 
-const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || null;
 
 export async function POST(req: NextRequest) {
   console.log('[Webhook] Handler started.');
-  // ⚠️ ADD THIS DEBUG LINE ⚠️
-  console.log('[DEBUG] Secret length:', webhookSecret ? webhookSecret.length : 'N/A');
-  console.log('[DEBUG] Secret (first 38):', webhookSecret ? webhookSecret.slice(0, 38) : 'N/A');
-  // ⚠️ REMOVE THIS BEFORE PRODUCTION ⚠️
+  let event: Stripe.Event;
+  const headersList = headers();
+  const resendFlag = headersList.get('x-resend') || 'false';
+  const resendInstance = resendFlag === 'true' && resend ? resend : null;
   
-  if (!stripe || !webhookSecret) {
-    console.error('[Webhook] Stripe is not configured.');
-    return NextResponse.json({ error: 'Stripe is not configured.' }, { status: 500 });
+  if (!stripe) {
+    console.error('[Webhook] Stripe not configured.');
+    return NextResponse.json({ error: 'Stripe not configured' }, { status: 500 });
   }
 
   try {
-    const rawBodyBuffer = await req.arrayBuffer();
-    const rawBody = Buffer.from(rawBodyBuffer).toString('utf8');
-    console.log('[Webhook] Raw body received:', rawBody.substring(0, 200)); // Log first 200 chars
+    const stripeSignature = (headers()).get('stripe-signature');
 
-    // Extract Stripe signature from headers
-    const signature = req.headers.get('stripe-signature');
+    event = stripe.webhooks.constructEvent(
+      await req.text(),
+      stripeSignature as string,
+      process.env.STRIPE_WEBHOOK_SECRET as string
+    );
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    // On error, log and return the error message.
+    if (err! instanceof Error) console.log(err);
+    console.log(`❌ Error message: ${errorMessage}`);
+    return NextResponse.json(
+      {message: `Webhook Error: ${errorMessage}`},
+      {status: 400}
+    );
+  }
 
-    if (!signature) {
-      console.error('[Webhook] No Stripe signature found.');
-      return NextResponse.json({ error: 'No signature' }, { status: 400 });
-    }
-
-    // 1. Verify the event is genuinely from Stripe
-    let event: Stripe.Event;
-    try {
-      event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
-      console.log(`[Webhook] ✅ Signature verified! Event type: ${event.type}`);
-    } catch (err: any) {
-      console.error('[Webhook] ❌ Signature verification failed');
-      console.error('[Webhook] Error name:', err.name);
-      console.error('[Webhook] Error message:', err.message);
-      console.error('[Webhook] Signature (first 50 chars):', signature.substring(0, 50));
-      console.error('[Webhook] Body (first 100 chars):', rawBody.substring(0, 100));
-      
-      return NextResponse.json({ 
-        error: `Webhook signature verification failed: ${err.message}` 
-      }, { status: 400 });
-    }
+  // Successfully constructed event.
+  console.log('✅ Success:', event.id);
 
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session;
@@ -156,11 +147,11 @@ export async function POST(req: NextRequest) {
       }
 
       // **PROCESS 3: CONFIRMATION EMAIL**
-      if (resend && updatedUser.email) {
+      if (resendInstance && updatedUser.email) {
         try {
           console.log(`[Webhook] Sending confirmation email to ${updatedUser.email}...`);
           
-          const emailResult = await resend.emails.send({
+          const emailResult = await resendInstance.emails.send({
             from: process.env.EMAIL_FROM || 'noreply@datazag.com',
             to: updatedUser.email,
             subject: 'Your Datazag Credit Purchase Confirmation',
@@ -188,7 +179,7 @@ export async function POST(req: NextRequest) {
           // Don't fail the webhook for email errors - log and continue
         }
       } else {
-        if (!resend) {
+        if (!resendInstance) {
           console.log('[Webhook] Resend not configured, skipping email');
         } else {
           console.log('[Webhook] No user email found, skipping confirmation email');
