@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   console.log('[Webhook] url:', req.nextUrl?.pathname);
   console.log('[Webhook] host:', req.headers.get('host'));
   console.log('[Webhook] sig present:', Boolean(sig));
-  console.log('[Webhook] secret tail:', webhookSecret ? webhookSecret.slice(-6) : 'MISSING');
+  console.log('[Webhook] secret tail:', webhookSecret ? webhookSecret!.slice(-6) : 'MISSING');
   console.log('[Webhook] content-length:', req.headers.get('content-length'));
 
   if (!sig) {
@@ -57,18 +57,20 @@ export async function POST(req: NextRequest) {
   try {
     // 3) Verify signature against the exact raw body
    try {
-    const parts = Object.fromEntries(
-      sig.split(',').map(kv => {
-        const [k, v] = kv.split('=');
-        return [k.trim(), v];
-      })
-    ) as Record<string, string>;
+    const parts = sig && typeof sig === 'string'
+      ? Object.fromEntries(
+          (sig ?? '').split(',').map(kv => {
+            const [k, v] = kv.split('=');
+            return [k.trim(), v];
+          })
+        ) as Record<string, string>
+      : {};
     const ts = parts['t'];
     const v1 = parts['v1'];
 
-    if (ts && v1) {
+    if (ts && v1 && webhookSecret) {
       const payloadToSign = `t=${ts}.${raw.toString('utf8')}`;
-      const localHmac = crypto.createHmac('sha256', webhookSecret).update(payloadToSign).digest('hex');
+      const localHmac = crypto.createHmac('sha256', webhookSecret as string).update(payloadToSign).digest('hex');
       const hmacMatches = crypto.timingSafeEqual(Buffer.from(localHmac), Buffer.from(v1));
       console.log('[Webhook][diag] header.t:', ts);
       console.log('[Webhook][diag] header.v1 (first 12):', v1.slice(0, 12));
@@ -83,17 +85,25 @@ export async function POST(req: NextRequest) {
 
     // Verify the event using Stripe's library
     try {
-    event = stripe.webhooks.constructEvent(raw, sig, webhookSecret);
+    event = stripe.webhooks.constructEvent(raw, sig as string, webhookSecret as string);
     console.log('[Webhook] Signature verified ✅', event.id, event.type);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
+  } catch (err: unknown) {
+    let msg: string;
+    if (err instanceof Error) {
+      msg = err.message;
+    } else {
+      msg = String(err);
+    }
     console.error('[Webhook] Signature verification failed ❌', msg);
     return NextResponse.json({ error: `Webhook Error: ${msg}` }, { status: 400 });
   }
 
   // 4) Handle events
   if (event.type === 'checkout.session.completed') {
+    // Declare session before its first use
     const session = event.data.object as Stripe.Checkout.Session;
+    try {
+      // session is already assigned above
       console.log('[Webhook] Processing checkout.session.completed event.');
       console.log('[Webhook] Session ID:', session.id);
       console.log('[Webhook] Payment status:', session.payment_status);
@@ -135,6 +145,9 @@ export async function POST(req: NextRequest) {
       try {
         console.log('[Webhook] Starting database transaction...');
         
+        // Retrieve the session object from the event if not already set
+        // session is already assigned above
+
         await db.transaction(async (tx) => {
           // Update user credits
           const updatedUsers = await tx
@@ -230,7 +243,16 @@ export async function POST(req: NextRequest) {
 
       console.log(`[Webhook] ✅ Successfully completed all processes for user ${userId}`);
       console.log(`[Webhook] Summary: Added ${creditsToAdd} credits, updated Redis, sent email`);
+    } catch (error) {
+      console.error('[Webhook] Unexpected error:', error);
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
+  }
 
-    return NextResponse.json({ received: true });
+  return NextResponse.json({ received: true });
+  }
+  catch (error) {
+    console.error('[Webhook] Outer try/catch error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }
