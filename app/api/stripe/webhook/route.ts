@@ -28,45 +28,36 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Stripe not configured' }, { status: 500 });
   }
 
-  try {
-    const stripeSignature = (headers()).get('stripe-signature');
-    console.log('[Webhook] Verifying signature...' + (stripeSignature ? 'found' : 'missing'));
+ // 1) Get the raw body *exactly* as sent by Stripe
+  const rawBody = await req.text();
 
-    // Read the raw body as a Buffer for Stripe signature verification
-    const rawBody = await (async () => {
-      const chunks: Uint8Array[] = [];
-      const reader = req.body?.getReader();
-      if (!reader) throw new Error('Request body is missing');
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (value) chunks.push(value);
-      }
-      return Buffer.concat(chunks);
-    })();
+  // 2) Get the Stripe signature from the incoming request headers
+  const sig = req.headers.get('stripe-signature');
 
-    event = stripe.webhooks.constructEvent(
-      rawBody,
-      stripeSignature as string,
-      process.env.STRIPE_WEBHOOK_SECRET as string
-    );
-    console.log('[Webhook] Signature verified.' + (event ? 'valid' : 'invalid'));
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    // On error, log and return the error message.
-    if (err! instanceof Error) console.log(err);
-    console.log(`❌ Error message: ${errorMessage}`);
-    return NextResponse.json(
-      {message: `Webhook Error: ${errorMessage}`},
-      {status: 400}
-    );
+  if (!sig) {
+    console.error('[Webhook] Missing stripe-signature header');
+    return NextResponse.json({ error: 'Missing signature' }, { status: 400 });
   }
 
-  // Successfully constructed event.
-  console.log('✅ Success:', event.id);
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    console.error('[Webhook] Missing STRIPE_WEBHOOK_SECRET env var');
+    return NextResponse.json({ error: 'Misconfigured webhook secret' }, { status: 500 });
+  }
 
-    if (event.type === 'checkout.session.completed') {
-      const session = event.data.object as Stripe.Checkout.Session;
+  try {
+    // 3) Verify signature against the exact raw body
+    event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
+    console.log('[Webhook] Signature verified ✅', event.id, event.type);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[Webhook] Signature verification failed ❌', msg);
+    return NextResponse.json({ error: `Webhook Error: ${msg}` }, { status: 400 });
+  }
+
+  // 4) Handle events
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object as Stripe.Checkout.Session;
       console.log('[Webhook] Processing checkout.session.completed event.');
       console.log('[Webhook] Session ID:', session.id);
       console.log('[Webhook] Payment status:', session.payment_status);
