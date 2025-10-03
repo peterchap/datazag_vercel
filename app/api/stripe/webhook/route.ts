@@ -32,8 +32,21 @@ export async function POST(req: NextRequest) {
     const stripeSignature = (headers()).get('stripe-signature');
     console.log('[Webhook] Verifying signature...' + (stripeSignature ? 'found' : 'missing'));
 
+    // Read the raw body as a Buffer for Stripe signature verification
+    const rawBody = await (async () => {
+      const chunks: Uint8Array[] = [];
+      const reader = req.body?.getReader();
+      if (!reader) throw new Error('Request body is missing');
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) chunks.push(value);
+      }
+      return Buffer.concat(chunks);
+    })();
+
     event = stripe.webhooks.constructEvent(
-      await req.text(),
+      rawBody,
       stripeSignature as string,
       process.env.STRIPE_WEBHOOK_SECRET as string
     );
