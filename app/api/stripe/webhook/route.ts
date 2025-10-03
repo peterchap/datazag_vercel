@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   // 2) Get the Stripe signature from the incoming request headers
   const sig = req.headers.get('stripe-signature');
   //const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  const webhookSecret = "whsec_f2rMOVmNLizlDjVlDAt8SQIUGLsAZiOq";
+  const webhookSecret = "whsec_5V0iC9DoGkEhI1ttlEXs3oDBNKAC7gbS";
 
   console.log('[Webhook] url:', req.nextUrl?.pathname);
   console.log('[Webhook] host:', req.headers.get('host'));
