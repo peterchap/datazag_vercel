@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
         try {
           console.log(`[Webhook] Sending confirmation email to ${updatedUser.email}...`);
           
-          const emailResult = await resendInstance.emails.send({
+          const emailResult = await resendInstance!.emails.send({
             from: process.env.EMAIL_FROM || 'noreply@datazag.com',
             to: updatedUser.email,
             subject: 'Your Datazag Credit Purchase Confirmation',
@@ -190,11 +190,5 @@ export async function POST(req: NextRequest) {
       console.log(`[Webhook] Summary: Added ${creditsToAdd} credits, updated Redis, sent email`);
     }
 
-    
     return NextResponse.json({ received: true });
-  } catch (err: any) {
-    console.error('[Webhook] CRITICAL ERROR:', err.message);
-    console.error('[Webhook] Stack trace:', err.stack);
-    return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
-  }
 }
