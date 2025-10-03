@@ -6,6 +6,7 @@ import { eq, sql } from 'drizzle-orm';
 import Stripe from 'stripe';
 import { Resend } from 'resend';
 import { redisSyncService } from '@/lib/redis-sync-client';
+import crypto from 'crypto';
 
 
 
@@ -29,17 +30,25 @@ export async function POST(req: NextRequest) {
   }
 
  // 1) Get the raw body *exactly* as sent by Stripe
-  const rawBody = await req.text();
+  const ab = await req.arrayBuffer();
+  const raw = Buffer.from(ab);
 
   // 2) Get the Stripe signature from the incoming request headers
   const sig = req.headers.get('stripe-signature');
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  console.log('[Webhook] url:', req.nextUrl?.pathname);
+  console.log('[Webhook] host:', req.headers.get('host'));
+  console.log('[Webhook] sig present:', Boolean(sig));
+  console.log('[Webhook] secret tail:', webhookSecret ? webhookSecret.slice(-6) : 'MISSING');
+  console.log('[Webhook] content-length:', req.headers.get('content-length'));
 
   if (!sig) {
     console.error('[Webhook] Missing stripe-signature header');
     return NextResponse.json({ error: 'Missing signature' }, { status: 400 });
   }
 
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  //const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!webhookSecret) {
     console.error('[Webhook] Missing STRIPE_WEBHOOK_SECRET env var');
     return NextResponse.json({ error: 'Misconfigured webhook secret' }, { status: 500 });
@@ -47,7 +56,34 @@ export async function POST(req: NextRequest) {
 
   try {
     // 3) Verify signature against the exact raw body
-    event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
+   try {
+    const parts = Object.fromEntries(
+      sig.split(',').map(kv => {
+        const [k, v] = kv.split('=');
+        return [k.trim(), v];
+      })
+    ) as Record<string, string>;
+    const ts = parts['t'];
+    const v1 = parts['v1'];
+
+    if (ts && v1) {
+      const payloadToSign = `t=${ts}.${raw.toString('utf8')}`;
+      const localHmac = crypto.createHmac('sha256', webhookSecret).update(payloadToSign).digest('hex');
+      const hmacMatches = crypto.timingSafeEqual(Buffer.from(localHmac), Buffer.from(v1));
+      console.log('[Webhook][diag] header.t:', ts);
+      console.log('[Webhook][diag] header.v1 (first 12):', v1.slice(0, 12));
+      console.log('[Webhook][diag] localHmac (first 12):', localHmac.slice(0, 12));
+      console.log('[Webhook][diag] HMAC matches:', hmacMatches);
+    } else {
+      console.log('[Webhook][diag] Could not parse t/v1 from signature header');
+    }
+  } catch (e) {
+    console.log('[Webhook][diag] HMAC self-check failed:', e);
+  }
+
+    // Verify the event using Stripe's library
+    try {
+    event = stripe.webhooks.constructEvent(raw, sig, webhookSecret);
     console.log('[Webhook] Signature verified ✅', event.id, event.type);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
