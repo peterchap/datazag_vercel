@@ -1,62 +1,78 @@
 name: Sync Portal DB to Redis Memorystore
 
 on:
-    schedule:
-        # Run every 15 minutes (adjust based on your needs)
-        - cron: "*/15 * * * *"
-    workflow_dispatch: # Allow manual triggering
-
-env:
-    REDIS_API_URL: ${{ secrets.REDIS_API_URL }}
-    REDIS_API_KEY: ${{ secrets.REDIS_API_KEY }}
-    NEON_DB_URL: ${{ secrets.NEON_DB_URL }}
+  schedule:
+    # Run every 15 minutes in production
+    - cron: "*/15 * * * *"
+  workflow_dispatch: # Allow manual triggering with environment selection
+    inputs:
+      environment:
+        description: "Environment to sync"
+        required: true
+        default: "Production"
+        type: choice
+        options:
+          - development
+          - Production
+  push:
+    branches:
+      - main
+    paths:
+      - "sync-scripts/**"
+      - ".github/workflows/sync-redis-memorystore.yml"
 
 jobs:
-    sync-to-redis:
-        runs-on: ubuntu-latest
-        timeout-minutes: 10
+  sync-to-redis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Use environment from workflow_dispatch input, or default to Production for scheduled runs
+    environment:
+      name: ${{ github.event.inputs.environment || 'Production' }}
+      # url: ${{ secrets.REDIS_API_URL }}
 
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@v4
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-            - name: Setup Node.js
-              uses: actions/setup-node@v4
-              with:
-                  node-version: "20"
-                  cache: "npm"
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
 
-            - name: Install dependencies
-              run: |
-                  cd sync-scripts
-                  npm ci
+      - name: Install dependencies
+        run: |
+          cd sync-scripts
+          npm ci
 
-            - name: Run sync script
-              run: |
-                  cd sync-scripts
-                  node sync-portal-to-redis.js
-              env:
-                  REDIS_API_URL: ${{ secrets.REDIS_API_URL }}
-                  REDIS_API_KEY: ${{ secrets.REDIS_API_KEY }}
-                  NEON_DB_URL: ${{ secrets.NEON_DB_URL }}
+      - name: Run sync script
+        run: |
+          cd sync-scripts
+          node sync-portal-to-redis.js
+        env:
+          REDIS_API_URL: ${{ secrets.REDIS_API_URL }}
+          REDIS_API_KEY: ${{ secrets.REDIS_API_KEY }}
+          NEON_DB_URL: ${{ secrets.NEON_DB_URL }}
+          ENVIRONMENT: ${{ github.event.inputs.environment || 'production' }}
 
-            - name: Report sync status
-              if: failure()
-              uses: actions/github-script@v7
-              with:
-                  script: |
-                      github.rest.issues.create({
-                        owner: context.repo.owner,
-                        repo: context.repo.repo,
-                        title: 'Redis Sync Failed',
-                        body: 'The scheduled Redis sync job failed. Check the workflow logs for details.',
-                        labels: ['sync-failure', 'automated']
-                      })
+      - name: Report sync status
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const environment = '${{ github.event.inputs.environment || 'production' }}';
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Redis Sync Failed (${environment})`,
+              body: `The scheduled Redis sync job failed in **${environment}** environment.\n\nWorkflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              labels: ['sync-failure', 'automated', environment]
+            })
 
-            - name: Upload sync logs
-              if: always()
-              uses: actions/upload-artifact@v4
-              with:
-                  name: sync-logs-${{ github.run_number }}
-                  path: sync-scripts/logs/
-                  retention-days: 7
+      - name: Upload sync logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sync-logs-${{ github.run_number }}
+          path: sync-scripts/logs/
+          retention-days: 7
